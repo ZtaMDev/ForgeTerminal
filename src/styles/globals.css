@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #1e1e2e;
+  --color-bg-alt: #181825;
+  --color-bg-surface: #313244;
+  --color-bg-overlay: #45475a;
+  --color-fg: #cdd6f4;
+  --color-fg-alt: #bac2de;
+  --color-fg-subtle: #a6adc8;
+  --color-red: #f38ba8;
+  --color-green: #a6e3a1;
+  --color-yellow: #f9e2af;
+  --color-blue: #89b4fa;
+  --color-magenta: #f5c2e7;
+  --color-cyan: #94e2d5;
+  --color-peach: #fab387;
+  --color-mauve: #cba6f7;
+  --color-teal: #94e2d5;
+  --color-sky: #89dceb;
+  --color-pink: #f5c2e7;
+  --color-flamingo: #f2cdcd;
+  --color-rosewater: #f5e0dc;
+  --color-maroon: #eba0ac;
+  --color-lavender: #b4befe;
+  --color-sapphire: #74c7ec;
+  --color-mantle: #181825;
+  --color-crust: #11111b;
+  --color-subtext0: #a6adc8;
+  --color-subtext1: #bac2de;
+  --color-surface0: #313244;
+  --color-surface1: #45475a;
+  --color-surface2: #585b70;
+  --color-overlay0: #6c7086;
+  --color-overlay1: #7f849c;
+  --color-overlay2: #9399b2;
+  --color-accent: #cba6f7;
+}
+
+@layer base {
+  * {
+    @apply border-surface1;
+  }
+
+  body {
+    @apply bg-bg text-fg font-mono antialiased;
+    font-family: "JetBrains Mono", "Cascadia Code", "Fira Code",
+      "Consolas", monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  ::selection {
+    background-color: rgba(203, 166, 247, 0.3);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-bg-alt);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface1);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-surface2);
+  }
+
+  input,
+  textarea,
+  select {
+    @apply bg-bg-surface text-fg border-surface1 rounded px-2 py-1;
+    outline: none;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply border-accent;
+    box-shadow: 0 0 0 1px var(--color-accent);
+  }
+}
+
+@layer utilities {
+  .panel-bg {
+    @apply bg-bg-alt;
+  }
+
+  .panel-border {
+    @apply border-r border-surface0;
+  }
+
+  .hover-bg {
+    @apply hover:bg-surface0 transition-colors duration-100;
+  }
+
+  .active-bg {
+    @apply bg-surface0;
+  }
+
+  .text-muted {
+    @apply text-subtext0;
+  }
+
+  .text-accent {
+    @apply text-accent;
+  }
+}
