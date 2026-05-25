@@ -10,12 +10,15 @@ import {
   FileImage,
   FileJson,
   FileText,
+  FileType,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import type { ExplorerNode } from "@/stores/explorerStore";
 import { useExplorerStore } from "@/stores/explorerStore";
 import { useTabStore } from "@/stores/tabStore";
 import { useShortcutStore } from "@/stores/shortcutStore";
+import { isImageFile } from "@/components/viewer/ImageViewer";
+import { isBinaryFile } from "@/components/viewer/RawViewer";
 
 interface FileTreeProps {
   root: ExplorerNode;
@@ -36,6 +39,40 @@ interface FlatItem {
 
 const ROW_HEIGHT = 24;
 
+function openFile(node: ExplorerNode) {
+  const id = crypto.randomUUID();
+  const tabStore = useTabStore.getState();
+
+  if (isImageFile(node.path)) {
+    tabStore.addTab({
+      id,
+      type: "viewer",
+      title: node.name,
+      filePath: node.path,
+      pinned: false,
+      createdAt: Date.now(),
+    });
+  } else if (isBinaryFile(node.path)) {
+    tabStore.addTab({
+      id,
+      type: "viewer",
+      title: node.name,
+      filePath: node.path,
+      pinned: false,
+      createdAt: Date.now(),
+    });
+  } else {
+    tabStore.addTab({
+      id,
+      type: "editor",
+      title: node.name,
+      filePath: node.path,
+      pinned: false,
+      createdAt: Date.now(),
+    });
+  }
+}
+
 const fileIcons: Record<string, typeof File> = {
   js: FileCode,
   jsx: FileCode,
@@ -53,6 +90,13 @@ const fileIcons: Record<string, typeof File> = {
   gif: FileImage,
   svg: FileImage,
   ico: FileImage,
+  bmp: FileImage,
+  webp: FileImage,
+  avif: FileImage,
+  exe: FileType,
+  dll: FileType,
+  zip: FileType,
+  pdf: FileType,
 };
 
 function getFileIcon(name: string) {
@@ -86,18 +130,6 @@ function flattenTree(
 
   walk(node, 0);
   return items;
-}
-
-function openFileInEditor(node: ExplorerNode) {
-  const id = crypto.randomUUID();
-  useTabStore.getState().addTab({
-    id,
-    type: "editor",
-    title: node.name,
-    filePath: node.path,
-    pinned: false,
-    createdAt: Date.now(),
-  });
 }
 
 export function FileTree({
@@ -158,7 +190,6 @@ export function FileTree({
 
       if (node.is_dir) {
         if (!expandedPaths.has(node.path)) {
-          // Mark as loading before async load so spinner appears
           if (!node.children) {
             updateNode(node.path, { loading: true });
           }
@@ -166,8 +197,6 @@ export function FileTree({
           if (!node.children) {
             onLoadDirectory(node.path, node.path);
           }
-        } else {
-          toggleExpanded(node.path);
         }
       }
     },
@@ -188,7 +217,7 @@ export function FileTree({
           }
         }
       } else {
-        openFileInEditor(node);
+        openFile(node);
       }
     },
     [setSelectedPath, toggleExpanded, expandedPaths, onLoadDirectory],
@@ -243,7 +272,7 @@ export function FileTree({
               }
             }
           } else {
-            openFileInEditor(item.node);
+            openFile(item.node);
           }
           break;
         }

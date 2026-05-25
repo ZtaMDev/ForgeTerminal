@@ -16,6 +16,7 @@ pub fn run() {
             commands::terminal::pty_kill,
             commands::filesystem::fs_read_dir,
             commands::filesystem::fs_read_file,
+            commands::filesystem::fs_read_file_binary,
             commands::filesystem::fs_write_file,
             commands::filesystem::fs_stat,
             commands::filesystem::fs_create_dir,

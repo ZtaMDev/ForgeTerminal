@@ -15,6 +15,9 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 import { useExplorerStore } from "@/stores/explorerStore";
 import { getAllCommands } from "@/lib/commands";
+import { isImageFile } from "@/components/viewer/ImageViewer";
+import { ImageViewer } from "@/components/viewer/ImageViewer";
+import { RawViewer } from "@/components/viewer/RawViewer";
 
 const CodeMirrorEditor = lazy(() =>
   import("@/components/editor/CodeMirrorEditor").then((m) => ({ default: m.CodeMirrorEditor })),
@@ -221,10 +224,17 @@ export function MainLayout() {
           </Suspense>
         );
       case "viewer":
-        return (
-          <div className="flex-1 flex items-center justify-center panel-bg">
-            <span className="text-fg-subtle">Viewer</span>
-          </div>
+        if (!activeTab.filePath) {
+          return (
+            <div className="flex-1 flex items-center justify-center panel-bg">
+              <span className="text-fg-subtle">Viewer</span>
+            </div>
+          );
+        }
+        return isImageFile(activeTab.filePath) ? (
+          <ImageViewer filePath={activeTab.filePath} />
+        ) : (
+          <RawViewer filePath={activeTab.filePath} />
         );
       default:
         return null;

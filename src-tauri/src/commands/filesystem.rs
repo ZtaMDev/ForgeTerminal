@@ -2,6 +2,30 @@ use serde::Serialize;
 use std::path::Path;
 use tokio::fs;
 
+fn base64_encode(data: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::new();
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = chunk.get(1).copied().unwrap_or(0) as u32;
+        let b2 = chunk.get(2).copied().unwrap_or(0) as u32;
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 {
+            result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+        if chunk.len() > 2 {
+            result.push(CHARS[(triple & 0x3F) as usize] as char);
+        } else {
+            result.push('=');
+        }
+    }
+    result
+}
+
 #[derive(Serialize)]
 pub struct FileEntry {
     pub name: String,
@@ -67,6 +91,14 @@ pub async fn fs_read_file(path: String) -> Result<String, String> {
     fs::read_to_string(&path)
         .await
         .map_err(|e| format!("Failed to read file: {}", e))
+}
+
+#[tauri::command]
+pub async fn fs_read_file_binary(path: String) -> Result<String, String> {
+    let data = fs::read(&path)
+        .await
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    Ok(base64_encode(&data))
 }
 
 #[tauri::command]

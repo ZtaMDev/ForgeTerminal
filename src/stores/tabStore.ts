@@ -27,7 +27,7 @@ export const useTabStore = create<TabState>((set, get) => ({
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.id,
-      activeView: tab.type === "terminal" || tab.type === "split" ? "terminal" : "editor",
+      activeView: tab.type === "viewer" ? "viewer" : tab.type === "terminal" || tab.type === "split" ? "terminal" : "editor",
     })),
 
   removeTab: (id) =>
@@ -46,6 +46,7 @@ export const useTabStore = create<TabState>((set, get) => ({
           newActiveId = newTabs[nextIdx].id;
           const activeTab = newTabs[nextIdx];
           newActiveView =
+            activeTab.type === "viewer" ? "viewer" :
             activeTab.type === "editor"
               ? "editor"
               : "terminal";
@@ -68,6 +69,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       return {
         activeTabId: id,
         activeView:
+          tab.type === "viewer" ? "viewer" :
           tab.type === "editor"
             ? "editor"
             : "terminal",
@@ -114,6 +116,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       tabs: [...s.tabs, newTab],
       activeTabId: newId,
       activeView:
+        newTab.type === "viewer" ? "viewer" :
         newTab.type === "editor"
           ? "editor"
           : "terminal",

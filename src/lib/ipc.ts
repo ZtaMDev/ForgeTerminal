@@ -57,6 +57,10 @@ export async function fsReadFile(path: string): Promise<string> {
   return invoke<string>("fs_read_file", { path });
 }
 
+export async function fsReadFileBinary(path: string): Promise<string> {
+  return invoke<string>("fs_read_file_binary", { path });
+}
+
 export async function fsWriteFile(
   path: string,
   content: string,

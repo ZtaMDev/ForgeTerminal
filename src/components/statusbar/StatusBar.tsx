@@ -5,6 +5,8 @@ import { useEditorStore } from "@/stores/editorStore";
 import { isPrefixActive } from "@/lib/prefixMode";
 import { TerminalStatus } from "./TerminalStatus";
 import { EditorStatus } from "./EditorStatus";
+import { Image, FileType } from "lucide-react";
+import { isImageFile } from "@/components/viewer/ImageViewer";
 
 export function StatusBar() {
   const { activeView, activeTabId } = useTabStore();
@@ -41,6 +43,19 @@ export function StatusBar() {
       {activeView === "editor" && activeEditor && (
         <EditorStatus editor={activeEditor} />
       )}
+      {activeView === "viewer" && activeTabId && (() => {
+        const tab = useTabStore.getState().tabs.find(t => t.id === activeTabId);
+        if (!tab?.filePath) return null;
+        const isImg = isImageFile(tab.filePath);
+        return (
+          <div className="flex items-center gap-2 text-fg flex-1 min-w-0">
+            {isImg ? <Image size={12} className="text-peach" /> : <FileType size={12} className="text-peach" />}
+            <span className="text-peach truncate">{tab.title}</span>
+            <span className="text-fg-subtle">•</span>
+            <span className="text-fg-subtle">{isImg ? "Image" : "Raw"}</span>
+          </div>
+        );
+      })()}
 
       <div className="flex-1" />
 

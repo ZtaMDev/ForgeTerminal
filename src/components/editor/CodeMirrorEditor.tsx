@@ -4,8 +4,8 @@ import { EditorView } from "@codemirror/view";
 import { search } from "@codemirror/search";
 import { autocompletion } from "@codemirror/autocomplete";
 import { useConfigStore } from "@/stores/configStore";
-import { getTheme } from "@/lib/themes";
 import { getLanguageForFile } from "@/lib/languages";
+import { getEditorExtensions } from "@/lib/editorTheme";
 import { fsReadFile, fsWriteFile } from "@/lib/ipc";
 import { useEditorStore } from "@/stores/editorStore";
 
@@ -20,98 +20,6 @@ export function CodeMirrorEditor({ editorId, filePath }: CodeMirrorEditorProps) 
   const [content, setLocalContent] = useState("");
   const [language, setLanguage] = useState("Plain Text");
   const [loaded, setLoaded] = useState(false);
-
-  const themeColors = getTheme(config.theme.type);
-
-  const editorTheme = EditorView.theme(
-    {
-      "&": {
-        backgroundColor: "transparent",
-        height: "100%",
-        fontSize: `${config.editor.fontSize}px`,
-        fontFamily: config.editor.fontFamily,
-      },
-      ".cm-gutters": {
-        backgroundColor: "var(--color-bg-alt)",
-        borderRight: "1px solid var(--color-surface0)",
-        color: "var(--color-subtext0)",
-      },
-      ".cm-activeLineGutter": {
-        backgroundColor: "var(--color-surface0)",
-      },
-      ".cm-activeLine": {
-        backgroundColor: "rgba(69, 71, 90, 0.3)",
-      },
-      ".cm-cursor": {
-        borderLeft: `${config.editor.cursorWidth}px solid var(--color-rosewater)`,
-      },
-      ".cm-selectionBackground": {
-        backgroundColor: "rgba(69, 71, 90, 0.6)",
-      },
-      ".cm-matchingBracket": {
-        backgroundColor: "rgba(203, 166, 247, 0.2)",
-        outline: "1px solid var(--color-mauve)",
-      },
-      ".cm-searchMatch": {
-        backgroundColor: "rgba(249, 226, 175, 0.3)",
-      },
-      ".cm-searchMatch-selected": {
-        backgroundColor: "rgba(249, 226, 175, 0.5)",
-      },
-      ".cm-tooltip": {
-        backgroundColor: "var(--color-bg-surface)",
-        border: "1px solid var(--color-surface1)",
-        color: "var(--color-fg)",
-      },
-      ".cm-tooltip-autocomplete ul li": {
-        color: "var(--color-fg)",
-      },
-      ".cm-tooltip-autocomplete ul li[aria-selected]": {
-        backgroundColor: "var(--color-surface0)",
-        color: "var(--color-accent)",
-      },
-      ".cm-foldPlaceholder": {
-        backgroundColor: "var(--color-surface0)",
-        color: "var(--color-subtext0)",
-      },
-      "&.cm-focused .cm-selectionBackground": {
-        backgroundColor: "rgba(69, 71, 90, 0.8)",
-      },
-    },
-    { dark: true },
-  );
-
-  const syntaxTheme = EditorView.theme(
-    {
-      ".cm-line": {
-        color: themeColors.colors.fg,
-      },
-      "& .ͼ1 .cm-keyword": { color: themeColors.syntax.keyword },
-      "& .ͼ1 .cm-atom": { color: themeColors.syntax.number },
-      "& .ͼ1 .cm-number": { color: themeColors.syntax.number },
-      "& .ͼ1 .cm-def": { color: themeColors.syntax.function },
-      "& .ͼ1 .cm-variable": { color: themeColors.syntax.variable },
-      "& .ͼ1 .cm-variable-2": { color: themeColors.syntax.variable },
-      "& .ͼ1 .cm-variable-3": { color: themeColors.syntax.variable },
-      "& .ͼ1 .cm-type": { color: themeColors.syntax.type },
-      "& .ͼ1 .cm-comment": { color: themeColors.syntax.comment },
-      "& .ͼ1 .cm-string": { color: themeColors.syntax.string },
-      "& .ͼ1 .cm-string-2": { color: themeColors.syntax.string },
-      "& .ͼ1 .cm-meta": { color: themeColors.syntax.meta },
-      "& .ͼ1 .cm-qualifier": { color: themeColors.syntax.function },
-      "& .ͼ1 .cm-builtin": { color: themeColors.syntax.constant },
-      "& .ͼ1 .cm-bracket": { color: themeColors.syntax.punctuation },
-      "& .ͼ1 .cm-tag": { color: themeColors.syntax.tag },
-      "& .ͼ1 .cm-attribute": { color: themeColors.syntax.attribute },
-      "& .ͼ1 .cm-hr": { color: themeColors.syntax.punctuation },
-      "& .ͼ1 .cm-link": { color: themeColors.syntax.link },
-      "& .ͼ1 .cm-operator": { color: themeColors.syntax.operator },
-      "& .ͼ1 .cm-property": { color: themeColors.syntax.property },
-      "& .ͼ1 .cm-punctuation": { color: themeColors.syntax.punctuation },
-      "& .ͼ1 .cm-separator": { color: themeColors.syntax.punctuation },
-    },
-    { dark: true },
-  );
 
   const fileName = filePath.split("\\").pop() ?? "";
   const langInfo = getLanguageForFile(fileName);
@@ -166,14 +74,20 @@ export function CodeMirrorEditor({ editorId, filePath }: CodeMirrorEditorProps) 
   }
 
   return (
-    <div className="flex-1 panel-bg overflow-hidden">
+    <div
+      className="flex-1 panel-bg overflow-hidden"
+      style={{
+        "--editor-font-family": `${config.editor.fontFamily}`,
+        "--editor-font-size": `${config.editor.fontSize}px`,
+        "--editor-cursor-width": `${config.editor.cursorWidth}px`,
+      } as React.CSSProperties}
+    >
       <CodeMirror
         value={content}
         onChange={onChange}
         extensions={[
           langExtension,
-          editorTheme,
-          syntaxTheme,
+          ...getEditorExtensions(),
           search(),
           autocompletion(),
           EditorView.lineWrapping,
