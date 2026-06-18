@@ -53,7 +53,7 @@ export function SplitTerminal({ layout, tabId }: SplitTerminalProps) {
     items.push(
       <div
         key={layout.splits[i]}
-        className="flex flex-col min-h-0 min-w-0"
+        className="flex flex-col min-h-0 min-w-0 anim-transition anim-slide"
         style={{ flexBasis: `${sizes[i]}%`, flexGrow: 0, flexShrink: 0, overflow: "hidden" }}
       >
         <div className="flex-1 min-h-0 min-w-0">

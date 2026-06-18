@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useConfigStore } from "@/stores/configStore";
 
 const STEPS = [
   {
@@ -89,6 +90,47 @@ function arrowCSS(dir: "top" | "bottom" | "left" | "right"): React.CSSProperties
   }
 }
 
+function AnimationPrefs() {
+  const config = useConfigStore((s) => s.config);
+  const setTheme = useConfigStore((s) => s.setTheme);
+  const anim = config.theme.animations;
+  return (
+    <div className="mt-3 pt-3 border-t border-surface0">
+      <p className="text-xs text-fg-subtle font-medium mb-2">Animation Preferences</p>
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-xs text-fg-alt w-20">Enabled</span>
+        <div
+          role="switch"
+          tabIndex={0}
+          aria-checked={anim.enabled}
+          className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${anim.enabled ? "bg-accent" : "bg-surface1"}`}
+          style={{ transitionDuration: "var(--anim-duration, 200ms)" }}
+          onClick={() => setTheme({ animations: { ...anim, enabled: !anim.enabled } })}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTheme({ animations: { ...anim, enabled: !anim.enabled } }); } }}
+        >
+          <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${anim.enabled ? "translate-x-4" : ""}`}
+            style={{ transitionDuration: "var(--anim-duration, 200ms)" }} />
+        </div>
+      </div>
+      {anim.enabled && (
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-fg-alt w-20">Speed</span>
+          <input
+            type="range"
+            min={50}
+            max={600}
+            step={50}
+            value={anim.speed}
+            onChange={(e) => setTheme({ animations: { ...anim, speed: Number(e.target.value) } })}
+            className="flex-1 h-1 accent-accent cursor-pointer"
+          />
+          <span className="text-xs text-fg font-mono w-8 text-right">{anim.speed}ms</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface TutorialProps {
   isOpen: boolean;
   onClose: () => void;
@@ -99,6 +141,7 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
   const [arrowDir, setArrowDir] = useState<"top" | "bottom" | "left" | "right" | null>(null);
   const [offsets, setOffsets] = useState({ top: 0, left: 0 });
   const [spotRect, setSpotRect] = useState<DOMRect | null>(null);
+  const [mounted, setMounted] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const tutorialTabIdsRef = useRef<string[]>([]);
   const total = STEPS.length;
@@ -106,14 +149,19 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
   const isLast = step === total - 1;
   const isStep5 = step === 4;
   const iconClass = "w-8 h-8 flex items-center justify-center rounded-lg bg-accent/10 text-accent";
+  const animSpeed = useConfigStore((s) => s.config.theme.animations.enabled ? s.config.theme.animations.speed : 0);
 
   useEffect(() => {
     if (isOpen) {
       setStep(0);
+      setMounted(true);
       tutorialTabIdsRef.current = [];
       document.dispatchEvent(new CustomEvent("close-overlays"));
+    } else if (mounted) {
+      const t = setTimeout(() => setMounted(false), animSpeed);
+      return () => clearTimeout(t);
     }
-  }, [isOpen]);
+  }, [isOpen, animSpeed]);
 
   useEffect(() => {
     if (isOpen) {
@@ -334,7 +382,7 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
     [step, total, handleClose, advance],
   );
 
-  if (!isOpen) return null;
+  if (!mounted && !isOpen) return null;
 
   const hasTarget = current.target !== null;
   const Icon = current.icon;
@@ -344,14 +392,14 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
       {/* Transparent full-screen blocker */}
       <div
         data-tutorial="true"
-        className="fixed inset-0 z-[90]"
+        className={`fixed inset-0 z-[90] ${isOpen ? "anim-fade" : "anim-overlay-out"}`}
         style={{ background: "transparent" }}
       />
 
       {/* Accent border around target */}
       {hasTarget && spotRect && (
         <div
-          className="fixed z-[91] border-2 border-accent rounded pointer-events-none"
+          className={`fixed z-[91] border-2 border-accent rounded pointer-events-none ${isOpen ? "anim-fade" : "anim-overlay-out"}`}
           style={{
             top: spotRect.top - 2,
             left: spotRect.left - 2,
@@ -366,7 +414,7 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
         ref={cardRef}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        className="fixed z-[95] outline-none"
+        className={`fixed z-[95] outline-none ${isOpen ? "anim-overlay" : "anim-overlay-out"}`}
         style={
           arrowDir === null
             ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" }
@@ -410,6 +458,7 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
                 {line}
               </p>
             ))}
+            {step === 0 && <AnimationPrefs />}
           </div>
 
           <div className="flex items-center justify-between px-5 py-3 border-t border-surface0">

@@ -44,10 +44,15 @@ export interface SessionConfig {
   sessionRestore: boolean;
 }
 
+export interface DeveloperConfig {
+  enabled: boolean;
+}
+
 export interface ForgeConfig {
   theme: ThemeConfig;
   terminal: TerminalConfig;
   layout: LayoutConfig;
   shortcuts: ShortcutsConfig;
   session: SessionConfig;
+  developer: DeveloperConfig;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
+import { useConfigStore } from "@/stores/configStore";
 
 export interface Command {
   id: string;
@@ -23,11 +24,13 @@ export function CommandPalette({
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const selectedIndexRef = useRef(0);
   const filteredRef = useRef<Command[]>([]);
+  const animSpeed = useConfigStore((s) => s.config.theme.animations.enabled ? s.config.theme.animations.speed : 0);
 
   const filtered = query
     ? commands.filter((cmd) =>
@@ -43,11 +46,15 @@ export function CommandPalette({
     if (isOpen) {
       setQuery("");
       setSelectedIndex(0);
+      setMounted(true);
       if (!document.querySelector('[data-tutorial="true"]')) {
         setTimeout(() => inputRef.current?.focus(), 50);
       }
+    } else if (mounted) {
+      const t = setTimeout(() => setMounted(false), animSpeed);
+      return () => clearTimeout(t);
     }
-  }, [isOpen]);
+  }, [isOpen, animSpeed]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -115,14 +122,14 @@ export function CommandPalette({
     return () => document.removeEventListener("keydown", handler, true);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!mounted && !isOpen) return null;
 
   return (
     <div
       ref={overlayRef}
       data-overlay="true"
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] outline-none"
+      className={`fixed inset-0 z-50 flex items-start justify-center pt-[15vh] outline-none ${isOpen ? "anim-overlay" : "anim-overlay-out"}`}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div

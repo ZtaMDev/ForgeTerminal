@@ -1,6 +1,7 @@
 import type { Command } from "@/components/common/CommandPalette";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useConfigStore } from "@/stores/configStore";
 
 export function getAllCommands(): Command[] {
   const commands: Command[] = [];
@@ -174,15 +175,22 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+W",
       category: "Terminal",
       action: () => {
-        if (activeTabId && focusedId) {
-          const tab = tabs.find((t) => t.id === activeTabId);
-          if (tab?.type === "split" && tab.splitLayout?.splits.includes(focusedId)) {
-            useTabStore.getState().closeSplit(activeTabId, focusedId);
-          } else {
-            useTabStore.getState().removeTab(activeTabId);
-          }
-        } else if (activeTabId) {
-          useTabStore.getState().removeTab(activeTabId);
+        const fId = useTerminalStore.getState().focusedSessionId;
+        const tabState = useTabStore.getState();
+        let targetId: string | undefined;
+        if (fId) {
+          const tWith = tabState.tabs.find(
+            (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
+          );
+          targetId = tWith?.id;
+        }
+        if (!targetId) targetId = activeTabId;
+        if (!targetId) return;
+        const tab = tabState.tabs.find((t) => t.id === targetId);
+        if (tab?.type === "split" && tab.splitLayout?.splits.includes(fId ?? "")) {
+          tabState.closeSplit(targetId, fId!);
+        } else {
+          tabState.removeTab(targetId);
         }
       },
     },
@@ -192,7 +200,17 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+Shift+W",
       category: "Tab",
       action: () => {
-        if (activeTabId) useTabStore.getState().removeTab(activeTabId);
+        const fId = useTerminalStore.getState().focusedSessionId;
+        const tabState = useTabStore.getState();
+        let targetId: string | undefined;
+        if (fId) {
+          const tWith = tabState.tabs.find(
+            (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
+          );
+          targetId = tWith?.id;
+        }
+        if (!targetId) targetId = activeTabId;
+        if (targetId) tabState.removeTab(targetId);
       },
     },
     {
@@ -336,6 +354,37 @@ export function getAllCommands(): Command[] {
       },
     },
   );
+
+  // Developer commands
+  if (useConfigStore.getState().config.developer.enabled) {
+    commands.push(
+      {
+        id: "dev.clear-tutorial",
+        name: "Reset Tutorial Flag (show again)",
+        category: "Developer",
+        action: () => {
+          localStorage.removeItem("forge-tutorial-shown");
+          document.dispatchEvent(new CustomEvent("clear-tutorial"));
+        },
+      },
+      {
+        id: "dev.reset-config",
+        name: "Restore All Defaults",
+        category: "Developer",
+        action: () => {
+          useConfigStore.getState().resetConfig();
+        },
+      },
+      {
+        id: "dev.reopen-tutorial",
+        name: "Reopen Tutorial",
+        category: "Developer",
+        action: () => {
+          document.dispatchEvent(new CustomEvent("show-tutorial"));
+        },
+      },
+    );
+  }
 
   // Per-tab commands
   for (const tab of tabs) {

@@ -31,6 +31,12 @@ export function MainLayout() {
   const [pathDialogOpen, setPathDialogOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
+  // Inject animation duration CSS variable
+  useEffect(() => {
+    const speed = config.theme.animations.enabled ? config.theme.animations.speed : 0;
+    document.documentElement.style.setProperty("--anim-duration", `${speed}ms`);
+  }, [config.theme.animations.enabled, config.theme.animations.speed]);
+
   const handlePathConfirm = useCallback((path: string) => {
     const id = crypto.randomUUID();
     useTabStore.getState().addTab({
@@ -92,6 +98,11 @@ export function MainLayout() {
     document.addEventListener("open-path-input", openPathInput);
     document.addEventListener("show-tutorial", showTutorial);
 
+    const clearTutorial = () => {
+      localStorage.removeItem("forge-tutorial-shown");
+    };
+    document.addEventListener("clear-tutorial", clearTutorial);
+
     const closeOverlays = () => {
       setPaletteOpen(false);
       setSettingsOpen(false);
@@ -106,6 +117,7 @@ export function MainLayout() {
       document.removeEventListener("contextmenu", blockContextMenu);
       document.removeEventListener("open-path-input", openPathInput);
       document.removeEventListener("show-tutorial", showTutorial);
+      document.removeEventListener("clear-tutorial", clearTutorial);
       document.removeEventListener("close-overlays", closeOverlays);
     };
   }, []);

@@ -6,6 +6,7 @@ import type {
   LayoutConfig,
   ShortcutsConfig,
   SessionConfig,
+  DeveloperConfig,
 } from "@/types/config";
 import { defaultShortcuts } from "@/lib/shortcuts";
 
@@ -42,6 +43,9 @@ const defaultConfig: ForgeConfig = {
   session: {
     sessionRestore: true,
   },
+  developer: {
+    enabled: false,
+  },
 };
 
 interface ConfigState {
@@ -53,6 +57,8 @@ interface ConfigState {
   setLayout: (layout: Partial<LayoutConfig>) => void;
   setShortcuts: (shortcuts: Partial<ShortcutsConfig>) => void;
   setSession: (session: Partial<SessionConfig>) => void;
+  setDeveloper: (developer: Partial<DeveloperConfig>) => void;
+  resetConfig: () => void;
   loadConfig: () => Promise<void>;
   saveConfig: () => Promise<void>;
 }
@@ -102,6 +108,14 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set((state) => ({
       config: { ...state.config, session: { ...state.config.session, ...session } },
     })),
+
+  setDeveloper: (developer) =>
+    set((state) => ({
+      config: { ...state.config, developer: { ...state.config.developer, ...developer } },
+    })),
+
+  resetConfig: () =>
+    set({ config: { ...defaultConfig } }),
 
   loadConfig: async () => {
     try {

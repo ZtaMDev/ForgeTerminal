@@ -222,27 +222,47 @@ export function useKeyboardShortcuts() {
         break;
       }
       case "close-tab": {
-        if (!activeTabId) break;
-        const tab = tabs.find((t) => t.id === activeTabId);
+        const focusedId = termState.focusedSessionId;
+
+        // Find the tab that contains the focused session
+        let targetTabId: string | undefined;
+        if (focusedId) {
+          const tabWithFocus = tabs.find(
+            (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
+          );
+          targetTabId = tabWithFocus?.id;
+        }
+        if (!targetTabId) targetTabId = activeTabId;
+        if (!targetTabId) break;
+
+        const tab = tabs.find((t) => t.id === targetTabId);
         if (!tab || tab.pinned) break;
 
         if (tab.type === "split" && tab.splitLayout && tab.splitLayout.splits.length > 1) {
-          const focusedId = termState.focusedSessionId;
           if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
-            tabState.closeSplit(activeTabId, focusedId);
+            tabState.closeSplit(targetTabId, focusedId);
             break;
           }
-          tabState.removeTab(activeTabId);
+          tabState.removeTab(targetTabId);
           break;
         }
-        tabState.removeTab(activeTabId);
+        tabState.removeTab(targetTabId);
         break;
       }
       case "close-entire-tab": {
-        if (activeTabId) {
-          const tab = tabs.find((t) => t.id === activeTabId);
+        const focusedId = termState.focusedSessionId;
+        let targetTabId: string | undefined;
+        if (focusedId) {
+          const tabWithFocus = tabs.find(
+            (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
+          );
+          targetTabId = tabWithFocus?.id;
+        }
+        if (!targetTabId) targetTabId = activeTabId;
+        if (targetTabId) {
+          const tab = tabs.find((t) => t.id === targetTabId);
           if (tab && !tab.pinned) {
-            tabState.removeTab(activeTabId);
+            tabState.removeTab(targetTabId);
           }
         }
         break;

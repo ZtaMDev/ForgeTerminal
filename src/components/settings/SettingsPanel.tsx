@@ -10,16 +10,34 @@ interface SettingsPanelProps {
 const cursorOptions = ["block", "underline", "bar"];
 const bellOptions = ["none", "sound", "visual"];
 
+type SettingItem = {
+  section: string;
+  id: string;
+  label: string;
+  type: "text" | "number" | "select" | "toggle" | "action";
+  value?: unknown;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: string[];
+  onChange?: (v: unknown) => void;
+  action?: () => void;
+};
+
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const config = useConfigStore((s) => s.config);
-  const { setTerminal, setSession, setLayout } = useConfigStore();
+  const { setTerminal, setSession, setLayout, setTheme, setDeveloper, resetConfig } = useConfigStore();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const selectedIndexRef = useRef(0);
-  const itemsRef = useRef<(ReturnType<typeof createItems>)[0][]>([]);
+  const itemsRef = useRef<SettingItem[]>([]);
+  const animSpeed = config.theme.animations.enabled ? config.theme.animations.speed : 0;
+  const prevOpenRef = useRef(false);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const createItems = useCallback(() => [
+  const createItems = useCallback((): SettingItem[] => [
     { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
     { section: "Terminal", id: "fontSize", label: "Font Size", type: "number" as const, value: config.terminal.fontSize, min: 6, max: 72, step: 1, onChange: (v: unknown) => setTerminal({ fontSize: v as number }) },
     { section: "Terminal", id: "lineHeight", label: "Line Height", type: "number" as const, value: config.terminal.lineHeight, min: 0.5, max: 3, step: 0.1, onChange: (v: unknown) => setTerminal({ lineHeight: v as number }) },
@@ -31,23 +49,39 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Terminal", id: "scrollback", label: "Scrollback Lines", type: "number" as const, value: config.terminal.scrollback, min: 1000, max: 999999, step: 1000, onChange: (v: unknown) => setTerminal({ scrollback: v as number }) },
     { section: "Session", id: "sessionRestore", label: "Session Restoring", type: "toggle" as const, value: config.session.sessionRestore, onChange: (v: unknown) => setSession({ sessionRestore: v as boolean }) },
     { section: "Session", id: "showTutorial", label: "Show Tutorial", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("show-tutorial")); } },
+    { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
+    { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },
     { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },
-  ], [config, setTerminal, setSession, setLayout]);
+    { section: "Developer", id: "devMode", label: "Developer Mode", type: "toggle" as const, value: config.developer.enabled, onChange: (v: unknown) => setDeveloper({ enabled: v as boolean }) },
+    ...(config.developer.enabled ? [
+      { section: "Developer", id: "clearTutorial", label: "Reset Tutorial (show again)", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("clear-tutorial")); } },
+      { section: "Developer", id: "resetConfig", label: "Restore All Defaults", type: "action" as const, action: () => { resetConfig(); } },
+    ] : []),
+  ], [config, setTerminal, setSession, setLayout, setTheme, setDeveloper, resetConfig]);
 
-  const items = useMemo(createItems, [config, setTerminal, setSession, setLayout]);
+  const items = useMemo(createItems, [config, setTerminal, setSession, setLayout, setTheme, setDeveloper, resetConfig, createItems]);
 
-  // Keep refs in sync for native handler
   useEffect(() => { itemsRef.current = items; }, [items]);
   useEffect(() => { selectedIndexRef.current = selectedIndex; }, [selectedIndex]);
 
   useEffect(() => {
-    if (isOpen) {
+    const wasOpen = prevOpenRef.current;
+    prevOpenRef.current = isOpen;
+
+    if (isOpen && !wasOpen) {
+      clearTimeout(exitTimerRef.current);
       setSelectedIndex(0);
+      setMounted(true);
       if (!document.querySelector('[data-tutorial="true"]')) {
         requestAnimationFrame(() => overlayRef.current?.focus());
       }
+    } else if (!isOpen && wasOpen && mounted) {
+      exitTimerRef.current = setTimeout(() => {
+        setMounted(false);
+        exitTimerRef.current = undefined;
+      }, animSpeed);
     }
-  }, [isOpen]);
+  }, [isOpen, animSpeed]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -67,12 +101,24 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     }
   }, [selectedIndex]);
 
-  // Native DOM handler as primary (avoids React event delegation issues)
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
       const currentItems = itemsRef.current;
       const currentIdx = selectedIndexRef.current;
+
+      // If editing a text input inside the panel, let all keys pass through except Escape
+      const activeInput = document.activeElement?.tagName === 'INPUT' && overlayRef.current?.contains(document.activeElement);
+      if (activeInput) {
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+        if (e.key === 'Escape') {
+          (document.activeElement as HTMLElement).blur();
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        return;
+      }
 
       const handle = (action: string) => {
         switch (action) {
@@ -99,6 +145,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               item.onChange(opts[(idx + 1) % opts.length]);
             } else if (item.type === "action") {
               item.action();
+            } else if (item.type === "text") {
+              const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
+              (sel?.querySelector('input') as HTMLElement)?.focus();
             }
             break;
           }
@@ -149,7 +198,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     return () => document.removeEventListener("keydown", handler, true);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!mounted && !isOpen) return null;
 
   let lastSection = "";
 
@@ -158,7 +207,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       ref={overlayRef}
       data-overlay="true"
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] outline-none"
+      className={`fixed inset-0 z-50 flex items-start justify-center pt-[10vh] outline-none ${isOpen ? "anim-overlay" : "anim-overlay-out"}`}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
@@ -196,6 +245,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       ? "border-accent bg-surface1 text-fg font-medium"
                       : "border-transparent text-fg-alt hover:bg-surface1/50 hover:border-l-2 hover:border-surface1"
                   }`}
+                  style={{ transitionDuration: "var(--anim-duration, 200ms)" }}
                   onClick={() => {
                     setSelectedIndex(idx);
                     if (item.type === "toggle") {
@@ -210,8 +260,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   <span className="flex-1 text-sm truncate">{item.label}</span>
 
                   {item.type === "toggle" && (
-                    <div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${item.value ? "bg-accent" : "bg-surface1"}`}>
-                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${item.value ? "translate-x-4" : ""}`} />
+                    <div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${item.value ? "bg-accent" : "bg-surface1"}`}
+                      style={{ transitionDuration: "var(--anim-duration, 200ms)" }}>
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${item.value ? "translate-x-4" : ""}`}
+                        style={{ transitionDuration: "var(--anim-duration, 200ms)" }} />
                     </div>
                   )}
 
@@ -243,9 +295,10 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   {item.type === "action" && (
                     <button
                       className="px-3 py-1 text-xs text-bg bg-accent rounded hover:opacity-90 transition-opacity flex-shrink-0"
+                      style={{ transitionDuration: "var(--anim-duration, 200ms)" }}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
                     >
-                      Open
+                      {item.id === "showTutorial" ? "Open" : item.id === "clearTutorial" ? "Clear" : item.id === "resetConfig" ? "Restore" : "Run"}
                     </button>
                   )}
 
