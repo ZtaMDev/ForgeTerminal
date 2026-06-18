@@ -20,14 +20,7 @@ impl PtyManager {
 
     pub fn add_session(&self, id: String, shell: String, cwd: String) {
         let mut sessions = self.sessions.lock().unwrap();
-        sessions.insert(
-            id.clone(),
-            PtyHandle {
-                id,
-                shell,
-                cwd,
-            },
-        );
+        sessions.insert(id.clone(), PtyHandle { id, shell, cwd });
     }
 
     pub fn remove_session(&self, id: &str) {

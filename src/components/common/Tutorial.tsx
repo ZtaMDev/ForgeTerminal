@@ -15,7 +15,7 @@ const STEPS = [
   {
     icon: Zap,
     title: "Welcome to Forge",
-    content: "Forge is a terminal multiplexer — manage multiple terminal sessions in one window.\n\nThis quick guide will walk you through the essentials.",
+    content: "Forge is a terminal emulator and multiplexer — run and manage multiple terminal sessions in one window.\n\nThis quick guide will walk you through the essentials.",
     target: null,
   },
   {

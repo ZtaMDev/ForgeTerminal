@@ -59,7 +59,7 @@ export function TitleBar({ title = "Forge" }: TitleBarProps) {
 
       <div className="flex items-center flex-1">
         <span className="text-xs text-fg-subtle text-center flex-1 px-4 truncate">
-          Forge Terminal
+          Forge
         </span>
       </div>
 

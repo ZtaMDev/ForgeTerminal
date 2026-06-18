@@ -44,7 +44,7 @@ export function WelcomeTab() {
             Welcome
           </h1>
           <p className="text-sm text-fg-subtle">
-            Terminal Emulator / Multiplexer
+            Terminal Emulator &amp; Multiplexer
           </p>
         </div>
 

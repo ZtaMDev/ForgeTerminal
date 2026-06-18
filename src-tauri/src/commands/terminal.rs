@@ -145,11 +145,7 @@ pub fn pty_spawn(
 }
 
 #[tauri::command]
-pub fn pty_write(
-    state: State<'_, AppState>,
-    id: String,
-    data: String,
-) -> Result<(), String> {
+pub fn pty_write(state: State<'_, AppState>, id: String, data: String) -> Result<(), String> {
     let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
     let session = sessions
         .get(&id)
@@ -192,10 +188,7 @@ pub fn pty_resize(
 }
 
 #[tauri::command]
-pub fn pty_kill(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub fn pty_kill(state: State<'_, AppState>, id: String) -> Result<(), String> {
     let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
     if let Some(session) = sessions.remove(&id) {
         if let Ok(mut child) = session.child.lock() {

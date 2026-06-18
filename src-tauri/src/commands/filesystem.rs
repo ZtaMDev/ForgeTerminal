@@ -56,9 +56,7 @@ pub async fn fs_read_dir(path: String) -> Result<Vec<FileEntry>, String> {
             .modified()
             .ok()
             .map(|t| {
-                let duration = t
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default();
+                let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
                 let secs = duration.as_secs();
                 // Simple ISO-like format
                 format_timestamp(secs)
@@ -118,9 +116,7 @@ pub async fn fs_stat(path: String) -> Result<FileEntry, String> {
         .modified()
         .ok()
         .map(|t| {
-            let duration = t
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default();
+            let duration = t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
             format_timestamp(duration.as_secs())
         })
         .unwrap_or_default();
@@ -173,13 +169,11 @@ pub async fn fs_rename(old_path: String, new_path: String) -> Result<(), String>
 pub fn get_default_shell() -> String {
     #[cfg(target_os = "windows")]
     {
-        let pwsh_path =
-            "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
+        let pwsh_path = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
         if Path::new(pwsh_path).exists() {
             return pwsh_path.to_string();
         }
-        let system_root =
-            std::env::var("SYSTEMROOT").unwrap_or_else(|_| "C:\\Windows".to_string());
+        let system_root = std::env::var("SYSTEMROOT").unwrap_or_else(|_| "C:\\Windows".to_string());
         let ps_path = format!(
             "{}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
             system_root

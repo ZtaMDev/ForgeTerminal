@@ -159,8 +159,9 @@ export default function App() {
     };
   }, [loaded]);
 
-  const openSessionAt = (path: string) => {
+  const openSessionAt = (path: string, shellOverride?: string) => {
     const id = crypto.randomUUID();
+    const shell = shellOverride || useConfigStore.getState().config.terminal.defaultShell || "powershell.exe";
     useTabStore.getState().addTab({
       id,
       type: "terminal",
@@ -172,7 +173,7 @@ export default function App() {
     useTerminalStore.getState().addSession({
       id,
       title: "Terminal",
-      shell: "",
+      shell,
       cwd: path,
       cols: 80,
       rows: 24,

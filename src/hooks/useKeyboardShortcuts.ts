@@ -198,6 +198,7 @@ export function useKeyboardShortcuts() {
     switch (command) {
       case "new-terminal": {
         const id = crypto.randomUUID();
+        const shell = config.terminal.defaultShell || "powershell.exe";
         tabState.addTab({
           id,
           type: "terminal",
@@ -209,7 +210,7 @@ export function useKeyboardShortcuts() {
         termState.addSession({
           id,
           title: "Terminal",
-          shell: "",
+          shell,
           cwd: "",
           cols: 80,
           rows: 24,
