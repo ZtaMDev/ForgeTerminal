@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/common/CommandPalette";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { RenameDialog } from "@/components/common/RenameDialog";
 import { PathInputDialog } from "@/components/common/PathInputDialog";
+import { PastSessionsDialog } from "@/components/common/PastSessionsDialog";
 import { Tutorial } from "@/components/common/Tutorial";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTabStore } from "@/stores/tabStore";
@@ -29,6 +30,7 @@ export function MainLayout() {
   const [renameTabId, setRenameTabId] = useState<string | null>(null);
   const [renameCurrentName, setRenameCurrentName] = useState("");
   const [pathDialogOpen, setPathDialogOpen] = useState(false);
+  const [pastSessionsOpen, setPastSessionsOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
   // Inject animation duration CSS variable
@@ -57,6 +59,7 @@ export function MainLayout() {
       processId: null,
       createdAt: Date.now(),
     });
+    useConfigStore.getState().addPastPath(path);
     setPathDialogOpen(false);
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent("focus-terminal"));
@@ -90,12 +93,16 @@ export function MainLayout() {
     const openPathInput = () => {
       setPathDialogOpen(true);
     };
+    const openPastSessions = () => {
+      setPastSessionsOpen(true);
+    };
     const showTutorial = () => {
       setTutorialOpen(true);
     };
     document.addEventListener("toggle-command-palette", togglePalette);
     document.addEventListener("toggle-settings-panel", toggleSettings);
     document.addEventListener("open-path-input", openPathInput);
+    document.addEventListener("open-past-sessions-dialog", openPastSessions);
     document.addEventListener("show-tutorial", showTutorial);
 
     const clearTutorial = () => {
@@ -116,6 +123,7 @@ export function MainLayout() {
       document.removeEventListener("open-rename-dialog", openRename);
       document.removeEventListener("contextmenu", blockContextMenu);
       document.removeEventListener("open-path-input", openPathInput);
+      document.removeEventListener("open-past-sessions-dialog", openPastSessions);
       document.removeEventListener("show-tutorial", showTutorial);
       document.removeEventListener("clear-tutorial", clearTutorial);
       document.removeEventListener("close-overlays", closeOverlays);
@@ -214,6 +222,15 @@ export function MainLayout() {
           setPathDialogOpen(false);
           restoreFocus();
         }}
+      />
+
+      <PastSessionsDialog
+        isOpen={pastSessionsOpen}
+        onClose={() => {
+          setPastSessionsOpen(false);
+          restoreFocus();
+        }}
+        onSelect={handlePathConfirm}
       />
 
       <RenameDialog

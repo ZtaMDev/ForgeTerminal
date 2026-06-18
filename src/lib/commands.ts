@@ -19,6 +19,15 @@ export function getAllCommands(): Command[] {
       },
     },
     {
+      id: "terminal.past-sessions",
+      name: "View Past Sessions",
+      shortcut: "Ctrl+Shift+O",
+      category: "Terminal",
+      action: () => {
+        document.dispatchEvent(new CustomEvent("open-past-sessions-dialog"));
+      },
+    },
+    {
       id: "terminal.new",
       name: "New Terminal",
       shortcut: "Ctrl+Shift+`",
@@ -177,7 +186,7 @@ export function getAllCommands(): Command[] {
       action: () => {
         const fId = useTerminalStore.getState().focusedSessionId;
         const tabState = useTabStore.getState();
-        let targetId: string | undefined;
+        let targetId: string | undefined | null;
         if (fId) {
           const tWith = tabState.tabs.find(
             (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
@@ -202,7 +211,7 @@ export function getAllCommands(): Command[] {
       action: () => {
         const fId = useTerminalStore.getState().focusedSessionId;
         const tabState = useTabStore.getState();
-        let targetId: string | undefined;
+        let targetId: string | undefined | null;
         if (fId) {
           const tWith = tabState.tabs.find(
             (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
@@ -404,6 +413,41 @@ export function getAllCommands(): Command[] {
         name: `Close Tab "${tab.title}"`,
         category: "Tabs",
         action: () => useTabStore.getState().removeTab(tab.id),
+      });
+    }
+  }
+
+  // Past Sessions
+  const pastPaths = useConfigStore.getState().config.session.pastPaths;
+  if (pastPaths && pastPaths.length > 0) {
+    for (const path of pastPaths) {
+      commands.push({
+        id: `terminal.past.${path}`,
+        name: `Open Past Session: ${path}`,
+        category: "Recent",
+        action: () => {
+          const id = crypto.randomUUID();
+          useTabStore.getState().addTab({
+            id,
+            type: "terminal",
+            title: "Terminal",
+            sessionId: id,
+            pinned: false,
+            createdAt: Date.now(),
+          });
+          useTerminalStore.getState().addSession({
+            id,
+            title: "Terminal",
+            shell: "",
+            cwd: path,
+            cols: 80,
+            rows: 24,
+            processId: null,
+            createdAt: Date.now(),
+          });
+          useConfigStore.getState().addPastPath(path);
+          setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal")), 50);
+        },
       });
     }
   }

@@ -3,11 +3,17 @@ mod pty;
 mod state;
 
 use state::AppState;
+use tauri::Emitter;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_cli::init())
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            let payload = serde_json::json!({ "args": argv, "cwd": cwd });
+            let _ = app.emit("new-instance", payload);
+        }))
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
             commands::terminal::pty_spawn,

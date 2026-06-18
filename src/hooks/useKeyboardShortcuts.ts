@@ -225,7 +225,7 @@ export function useKeyboardShortcuts() {
         const focusedId = termState.focusedSessionId;
 
         // Find the tab that contains the focused session
-        let targetTabId: string | undefined;
+        let targetTabId: string | undefined | null;
         if (focusedId) {
           const tabWithFocus = tabs.find(
             (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
@@ -251,7 +251,7 @@ export function useKeyboardShortcuts() {
       }
       case "close-entire-tab": {
         const focusedId = termState.focusedSessionId;
-        let targetTabId: string | undefined;
+        let targetTabId: string | undefined | null;
         if (focusedId) {
           const tabWithFocus = tabs.find(
             (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
@@ -329,6 +329,10 @@ export function useKeyboardShortcuts() {
       }
       case "command-palette": {
         document.dispatchEvent(new CustomEvent("toggle-command-palette"));
+        break;
+      }
+      case "past-sessions": {
+        document.dispatchEvent(new CustomEvent("open-past-sessions-dialog"));
         break;
       }
       case "open-settings": {

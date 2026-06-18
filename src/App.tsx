@@ -6,6 +6,8 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { loadFromStorage, saveToStorage } from "@/stores/tabStore";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Loader2, Terminal } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
+import { getMatches } from "@tauri-apps/plugin-cli";
 
 export default function App() {
   const { loadConfig, loaded, config } = useConfigStore();
@@ -48,6 +50,16 @@ export default function App() {
             }, 200);
           }
         }
+      }
+
+      // Check CLI args
+      try {
+        const matches = await getMatches();
+        if (matches.args.path && matches.args.path.value) {
+          openSessionAt(matches.args.path.value as string);
+        }
+      } catch (e) {
+        // plugin-cli might not be ready or fail
       }
 
       setShowLoader(false);
@@ -122,6 +134,56 @@ export default function App() {
       window.removeEventListener("focus", handleRefocus);
     };
   }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+
+    const unlisten = listen("new-instance", (event) => {
+      const payload = event.payload as any;
+      if (payload && payload.args && payload.args.length > 1) {
+        // Depending on how args are passed, path is usually the last or specific one
+        // Let's assume the first non-flag argument after the executable
+        const pathArg = payload.args.find((a: string) => !a.startsWith("-") && !a.endsWith("exe") && !a.endsWith("forge"));
+        if (pathArg) {
+          openSessionAt(pathArg);
+        } else if (payload.cwd) {
+          openSessionAt(payload.cwd);
+        }
+      } else if (payload && payload.cwd) {
+        openSessionAt(payload.cwd);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [loaded]);
+
+  const openSessionAt = (path: string) => {
+    const id = crypto.randomUUID();
+    useTabStore.getState().addTab({
+      id,
+      type: "terminal",
+      title: "Terminal",
+      sessionId: id,
+      pinned: false,
+      createdAt: Date.now(),
+    });
+    useTerminalStore.getState().addSession({
+      id,
+      title: "Terminal",
+      shell: "",
+      cwd: path,
+      cols: 80,
+      rows: 24,
+      processId: null,
+      createdAt: Date.now(),
+    });
+    useConfigStore.getState().addPastPath(path);
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent("focus-terminal"));
+    }, 100);
+  };
 
   if (showLoader) {
     return (

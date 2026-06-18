@@ -1,12 +1,13 @@
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useConfigStore } from "@/stores/configStore";
 import { ForgeLogo } from "@/components/common/ForgeLogo";
 
 export function WelcomeTab() {
   const addTab = useTabStore((s) => s.addTab);
   const addSession = useTerminalStore((s) => s.addSession);
 
-  const openTerminal = () => {
+  const openTerminal = (path = "") => {
     const id = crypto.randomUUID();
     addTab({
       id,
@@ -20,12 +21,15 @@ export function WelcomeTab() {
       id,
       title: "Terminal",
       shell: "",
-      cwd: "",
+      cwd: path,
       cols: 80,
       rows: 24,
       processId: null,
       createdAt: Date.now(),
     });
+    if (path) {
+      useConfigStore.getState().addPastPath(path);
+    }
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent("focus-terminal"));
     }, 100);
@@ -53,7 +57,7 @@ export function WelcomeTab() {
 
         <button
           className="mt-2 px-5 py-2 bg-accent text-bg text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-          onClick={openTerminal}
+          onClick={() => openTerminal()}
         >
           Open Terminal
         </button>

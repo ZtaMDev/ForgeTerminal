@@ -3,7 +3,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useConfigStore } from "@/stores/configStore";
 import { isPrefixActive } from "@/lib/prefixMode";
 import { TerminalStatus } from "./TerminalStatus";
-import { Image, FileType, Settings } from "lucide-react";
+import { Image, FileType, Settings, FolderClock } from "lucide-react";
 import { isImageFile } from "@/components/viewer/ImageViewer";
 
 export function StatusBar() {
@@ -55,6 +55,19 @@ export function StatusBar() {
       <div className="flex-1" />
 
       <div className="flex items-center gap-2 text-fg-subtle">
+        {config.session.pastPaths && config.session.pastPaths.length > 0 && (
+          <>
+            <button
+              className="flex items-center gap-1 hover:text-fg transition-colors"
+              title="Recent Sessions (Ctrl+Shift+O)"
+              onClick={() => document.dispatchEvent(new CustomEvent("open-past-sessions-dialog"))}
+            >
+              <FolderClock size={12} />
+              Recent
+            </button>
+            <span className="text-surface1">|</span>
+          </>
+        )}
         <span className="hover:text-fg cursor-default" title="Toggle Passthrough">
           Ctrl+` {prefixActive ? "THRU" : "CMD"}
         </span>

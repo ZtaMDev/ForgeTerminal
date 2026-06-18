@@ -36,5 +36,20 @@
       "icons/256x256.png",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "cli": {
+      "description": "Forge Terminal Emulator",
+      "longDescription": "Launch Forge terminal. Pass a directory path to open a session in that directory.",
+      "args": [
+        {
+          "name": "path",
+          "index": 1,
+          "takesValue": true,
+          "description": "The directory path to open in a new session",
+          "short": "p"
+        }
+      ]
+    }
   }
 }

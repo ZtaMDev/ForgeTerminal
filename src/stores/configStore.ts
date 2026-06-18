@@ -42,6 +42,7 @@ const defaultConfig: ForgeConfig = {
   shortcuts: defaultShortcuts,
   session: {
     sessionRestore: true,
+    pastPaths: [],
   },
   developer: {
     enabled: false,
@@ -58,6 +59,8 @@ interface ConfigState {
   setShortcuts: (shortcuts: Partial<ShortcutsConfig>) => void;
   setSession: (session: Partial<SessionConfig>) => void;
   setDeveloper: (developer: Partial<DeveloperConfig>) => void;
+  addPastPath: (path: string) => void;
+  clearPastPaths: () => void;
   resetConfig: () => void;
   loadConfig: () => Promise<void>;
   saveConfig: () => Promise<void>;
@@ -114,16 +117,59 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       config: { ...state.config, developer: { ...state.config.developer, ...developer } },
     })),
 
+  addPastPath: (path) =>
+    set((state) => {
+      const paths = state.config.session.pastPaths || [];
+      const newPaths = [path, ...paths.filter((p) => p !== path)].slice(0, 10);
+      return {
+        config: {
+          ...state.config,
+          session: { ...state.config.session, pastPaths: newPaths },
+        },
+      };
+    }),
+
+  clearPastPaths: () =>
+    set((state) => ({
+      config: {
+        ...state.config,
+        session: { ...state.config.session, pastPaths: [] },
+      },
+    })),
+
   resetConfig: () =>
     set({ config: { ...defaultConfig } }),
 
   loadConfig: async () => {
+    const mergeConfig = (parsed: Partial<ForgeConfig>): ForgeConfig => {
+      return {
+        ...defaultConfig,
+        ...parsed,
+        theme: {
+          ...defaultConfig.theme,
+          ...(parsed.theme || {}),
+          animations: {
+            ...defaultConfig.theme.animations,
+            ...(parsed.theme?.animations || {}),
+          },
+        },
+        terminal: { ...defaultConfig.terminal, ...(parsed.terminal || {}) },
+        layout: { ...defaultConfig.layout, ...(parsed.layout || {}) },
+        shortcuts: {
+          global: { ...defaultConfig.shortcuts.global, ...(parsed.shortcuts?.global || {}) },
+          terminal: { ...defaultConfig.shortcuts.terminal, ...(parsed.shortcuts?.terminal || {}) },
+        },
+        session: { ...defaultConfig.session, ...(parsed.session || {}) },
+        developer: { ...defaultConfig.developer, ...(parsed.developer || {}) },
+      };
+    };
+
     try {
       const { configLoad } = await import("@/lib/ipc");
       const raw = await configLoad();
       if (raw) {
-        const parsed = JSON.parse(raw) as ForgeConfig;
-        set({ config: { ...defaultConfig, ...parsed }, loaded: true });
+        const parsed = JSON.parse(raw) as Partial<ForgeConfig>;
+        set({ config: mergeConfig(parsed), loaded: true });
         return;
       }
     } catch { /* IPC not available */ }
@@ -131,8 +177,8 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     try {
       const raw = localStorage.getItem("forge-config");
       if (raw) {
-        const parsed = JSON.parse(raw) as ForgeConfig;
-        set({ config: { ...defaultConfig, ...parsed }, loaded: true });
+        const parsed = JSON.parse(raw) as Partial<ForgeConfig>;
+        set({ config: mergeConfig(parsed), loaded: true });
         return;
       }
     } catch { /* ignore */ }

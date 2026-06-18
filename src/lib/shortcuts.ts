@@ -20,6 +20,7 @@ export const defaultShortcuts: ShortcutsConfig = {
     "tab-9": ["Ctrl+9"],
     "duplicate-tab": ["Ctrl+Shift+D"],
     "rename-tab": ["Ctrl+Shift+R"],
+    "past-sessions": ["Ctrl+Shift+O"],
     "split-horizontal": ["Ctrl+\\"],
     "split-vertical": ["Ctrl+Shift+\\"],
     "next-split": ["Ctrl+Shift+ArrowRight"],

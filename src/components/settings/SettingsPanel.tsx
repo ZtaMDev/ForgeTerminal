@@ -26,7 +26,7 @@ type SettingItem = {
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const config = useConfigStore((s) => s.config);
-  const { setTerminal, setSession, setLayout, setTheme, setDeveloper, resetConfig } = useConfigStore();
+  const { setTerminal, setSession, setLayout, setTheme, setDeveloper, resetConfig, clearPastPaths } = useConfigStore();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
@@ -35,7 +35,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const itemsRef = useRef<SettingItem[]>([]);
   const animSpeed = config.theme.animations.enabled ? config.theme.animations.speed : 0;
   const prevOpenRef = useRef(false);
-  const exitTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const createItems = useCallback((): SettingItem[] => [
     { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
@@ -48,6 +48,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Terminal", id: "rightClickPaste", label: "Right Click Paste", type: "toggle" as const, value: config.terminal.rightClickPaste, onChange: (v: unknown) => setTerminal({ rightClickPaste: v as boolean }) },
     { section: "Terminal", id: "scrollback", label: "Scrollback Lines", type: "number" as const, value: config.terminal.scrollback, min: 1000, max: 999999, step: 1000, onChange: (v: unknown) => setTerminal({ scrollback: v as number }) },
     { section: "Session", id: "sessionRestore", label: "Session Restoring", type: "toggle" as const, value: config.session.sessionRestore, onChange: (v: unknown) => setSession({ sessionRestore: v as boolean }) },
+    { section: "Session", id: "clearPastSessions", label: "Clear Past Sessions", type: "action" as const, action: () => { clearPastPaths(); } },
     { section: "Session", id: "showTutorial", label: "Show Tutorial", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("show-tutorial")); } },
     { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
     { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },
@@ -138,13 +139,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             const item = currentItems[currentIdx];
             if (!item) break;
             if (item.type === "toggle") {
-              item.onChange(!item.value);
+              item.onChange?.(!item.value);
             } else if (item.type === "select") {
               const opts = item.options!;
               const idx = opts.indexOf(item.value as string);
-              item.onChange(opts[(idx + 1) % opts.length]);
+              item.onChange?.(opts[(idx + 1) % opts.length]);
             } else if (item.type === "action") {
-              item.action();
+              item.action?.();
             } else if (item.type === "text") {
               const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
               (sel?.querySelector('input') as HTMLElement)?.focus();
@@ -157,9 +158,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             if (item.type === "select") {
               const opts = item.options!;
               const idx = opts.indexOf(item.value as string);
-              item.onChange(opts[(idx - 1 + opts.length) % opts.length]);
+              item.onChange?.(opts[(idx - 1 + opts.length) % opts.length]);
             } else if (item.type === "number") {
-              item.onChange(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)));
+              item.onChange?.(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)));
             }
             break;
           }
@@ -169,9 +170,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             if (item.type === "select") {
               const opts = item.options!;
               const idx = opts.indexOf(item.value as string);
-              item.onChange(opts[(idx + 1) % opts.length]);
+              item.onChange?.(opts[(idx + 1) % opts.length]);
             } else if (item.type === "number") {
-              item.onChange(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)));
+              item.onChange?.(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)));
             }
             break;
           }
@@ -249,11 +250,11 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   onClick={() => {
                     setSelectedIndex(idx);
                     if (item.type === "toggle") {
-                      item.onChange(!item.value);
+                      item.onChange?.(!item.value);
                     } else if (item.type === "select") {
                       const opts = item.options!;
                       const i = opts.indexOf(item.value as string);
-                      item.onChange(opts[(i + 1) % opts.length]);
+                      item.onChange?.(opts[(i + 1) % opts.length]);
                     }
                   }}
                 >
@@ -278,14 +279,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
-                        onClick={(e) => { e.stopPropagation(); item.onChange(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1))); }}
+                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1))); }}
                       >
                         <Minus size={12} />
                       </button>
                       <span className="text-xs text-fg font-mono w-8 text-center">{item.value as number}</span>
                       <button
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
-                        onClick={(e) => { e.stopPropagation(); item.onChange(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1))); }}
+                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1))); }}
                       >
                         <Plus size={12} />
                       </button>
@@ -296,7 +297,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <button
                       className="px-3 py-1 text-xs text-bg bg-accent rounded hover:opacity-90 transition-opacity flex-shrink-0"
                       style={{ transitionDuration: "var(--anim-duration, 200ms)" }}
-                      onClick={(e) => { e.stopPropagation(); item.action(); }}
+                      onClick={(e) => { e.stopPropagation(); item.action?.(); }}
                     >
                       {item.id === "showTutorial" ? "Open" : item.id === "clearTutorial" ? "Clear" : item.id === "resetConfig" ? "Restore" : "Run"}
                     </button>
@@ -307,7 +308,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       className="w-48 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none text-right flex-shrink-0"
                       value={item.value as string}
                       onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => item.onChange(e.target.value)}
+                      onChange={(e) => item.onChange?.(e.target.value)}
                     />
                   )}
                 </div>

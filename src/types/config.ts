@@ -42,6 +42,7 @@ export interface ShortcutsConfig {
 
 export interface SessionConfig {
   sessionRestore: boolean;
+  pastPaths: string[];
 }
 
 export interface DeveloperConfig {
