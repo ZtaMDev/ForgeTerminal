@@ -40,14 +40,14 @@ export function WelcomeTab() {
             Welcome
           </h1>
           <p className="text-sm text-fg-subtle">
-            Multiplexer &bull; Editor &bull; Terminal
+            Terminal Multiplexer
           </p>
         </div>
 
         <div className="text-xs text-fg-subtle space-y-1.5">
+          <p><span className="text-accent font-mono">Ctrl+`</span> Passthrough Toggle</p>
           <p><span className="text-accent font-mono">Ctrl+Shift+`</span> New Terminal</p>
           <p><span className="text-accent font-mono">Ctrl+Shift+P</span> Command Palette</p>
-          <p><span className="text-accent font-mono">Ctrl+B</span> Toggle Explorer</p>
         </div>
 
         <button

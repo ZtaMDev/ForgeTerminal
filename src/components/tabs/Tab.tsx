@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Terminal, FileCode, Image, Columns2, X, Pin } from "lucide-react";
+import { Terminal, Image, Columns2, X, Pin } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTabStore } from "@/stores/tabStore";
@@ -15,14 +15,12 @@ interface TabProps {
 
 const tabIcons: Record<string, typeof Terminal> = {
   terminal: Terminal,
-  editor: FileCode,
   viewer: Image,
   split: Columns2,
 };
 
 const tabColors: Record<string, string> = {
   terminal: "text-green",
-  editor: "text-blue",
   viewer: "text-peach",
   split: "text-cyan",
 };

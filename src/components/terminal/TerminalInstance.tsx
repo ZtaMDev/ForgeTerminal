@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
+import { debounce } from "@/lib/utils";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -9,6 +10,7 @@ import {
   ptySpawn,
   ptyWrite,
   ptyResize,
+  getDefaultShell,
   onPTYData,
   onPTYExit,
   onPTYError,
@@ -20,6 +22,34 @@ interface TerminalInstanceProps {
   shell?: string;
   cwd?: string;
   tabId?: string;
+}
+
+function extractCWD(buffer: string): string | null {
+  // OSC 7 sequence: ESC ] 7 ; file : // hostname / path ESC \
+  const osc7 = buffer.match(/\x1b\]7;file:\/\/[^/]+(\/[^\x1b]*?)\x1b\\/);
+  if (osc7 && osc7[1]) {
+    return decodeURIComponent(osc7[1]);
+  }
+
+  // Windows PowerShell prompt: PS C:\Users\name>
+  const psMatch = buffer.match(/(?:^|\n)\s*PS\s+([A-Za-z]:[^\n>]*?)>/);
+  if (psMatch && psMatch[1]) {
+    const path = psMatch[1].replace(/\s+$/, "");
+    if (/^[A-Za-z]:\\/.test(path) || /^[A-Za-z]:\//.test(path)) {
+      return path.replace(/\//g, "\\");
+    }
+  }
+
+  // Windows cmd prompt: C:\Users\name>
+  const cmdMatch = buffer.match(/(?:^|\n)\s*([A-Za-z]:\\[^\n>]*?)>/);
+  if (cmdMatch && cmdMatch[1]) {
+    const path = cmdMatch[1].replace(/\s+$/, "");
+    if (/^[A-Za-z]:\\/.test(path)) {
+      return path;
+    }
+  }
+
+  return null;
 }
 
 export function TerminalInstance({
@@ -59,7 +89,7 @@ export function TerminalInstance({
 
       try {
         const detectedShell =
-          shell || config.terminal.defaultShell || (await import("@/lib/ipc")).getDefaultShell() || "powershell.exe";
+          shell || config.terminal.defaultShell || await getDefaultShell() || "powershell.exe";
         const shellPath = typeof detectedShell === "string" ? detectedShell : "powershell.exe";
         const result = await ptySpawn(
           sessionId,
@@ -73,14 +103,6 @@ export function TerminalInstance({
           shell: shellPath,
           cwd: cwd || result.cwd || "",
         });
-        // Update explorer path with the effective CWD (respect session's pre-set cwd)
-        const { useExplorerStore } = await import("@/stores/explorerStore");
-        if (useExplorerStore.getState().shouldFollowTerminal()) {
-          const effectiveCwd = cwd || result.cwd || "";
-          if (effectiveCwd) {
-            useExplorerStore.getState().setCurrentPath(effectiveCwd);
-          }
-        }
       } catch (e) {
         console.error("Failed to spawn PTY:", e);
         isSpawnedRef.current = false;
@@ -122,31 +144,46 @@ export function TerminalInstance({
       // container not yet visible
     }
 
-    const run = async () => {
-      // Set up listeners BEFORE spawn to avoid race conditions
-      const unsubs = await Promise.all([
-        onPTYData(sessionId, (payload) => {
-          xterm.write(payload.data);
-        }),
-        onPTYExit(sessionId, (payload) => {
-          const message = `\r\n\x1b[33m[Process exited (code: ${payload.code})]\x1b[0m`;
-          xterm.writeln(message);
-          isSpawnedRef.current = false;
-        }),
-        onPTYError(sessionId, (payload) => {
-          const message = `\r\n\x1b[31m[PTY Error: ${payload.message}]\x1b[0m`;
-          xterm.writeln(message);
-          isSpawnedRef.current = false;
-        }),
+    // Fire listener registration and PTY spawn in parallel
+    const cols = xterm.cols;
+    const rows = xterm.rows;
+
+    // Buffer for detecting CWD from prompt changes
+    let cwdBuffer = "";
+
+    (async () => {
+      const [unsubs] = await Promise.all([
+        Promise.all([
+          onPTYData(sessionId, (payload) => {
+            xterm.write(payload.data);
+            // Parse PTY output for CWD changes (Windows prompt patterns)
+            cwdBuffer += payload.data;
+            if (cwdBuffer.length > 4096) {
+              cwdBuffer = cwdBuffer.slice(-2048);
+            }
+            const cwd = extractCWD(cwdBuffer);
+            if (cwd) {
+              const session = useTerminalStore.getState().sessions.get(sessionId);
+              if (session && session.cwd !== cwd) {
+                useTerminalStore.getState().updateSession(sessionId, { cwd });
+              }
+            }
+          }),
+          onPTYExit(sessionId, (payload) => {
+            const message = `\r\n\x1b[33m[Process exited (code: ${payload.code})]\x1b[0m`;
+            xterm.writeln(message);
+            isSpawnedRef.current = false;
+          }),
+          onPTYError(sessionId, (payload) => {
+            const message = `\r\n\x1b[31m[PTY Error: ${payload.message}]\x1b[0m`;
+            xterm.writeln(message);
+            isSpawnedRef.current = false;
+          }),
+        ]),
+        spawnPTY(cols, rows),
       ]);
       unlistenRef.current = unsubs;
-
-      const cols = xterm.cols;
-      const rows = xterm.rows;
-      await spawnPTY(cols, rows);
-    };
-
-    run();
+    })();
 
     // Control key routing:
     // - The capture-phase shortcut handler intercepts forge shortcuts before xterm sees them
@@ -216,8 +253,8 @@ export function TerminalInstance({
     };
     document.addEventListener("focus-restore", handleFocusRestore);
 
-    // ResizeObserver to keep fit
-    const observer = new ResizeObserver(() => {
+    // ResizeObserver to keep fit (debounced to avoid excessive IPC)
+    const onResize = debounce(() => {
       try {
         fitAddon.fit();
         const { cols, rows } = xterm;
@@ -225,7 +262,8 @@ export function TerminalInstance({
       } catch {
         // ignore
       }
-    });
+    }, 50);
+    const observer = new ResizeObserver(onResize);
 
     if (terminalRef.current.parentElement) {
       observer.observe(terminalRef.current.parentElement);

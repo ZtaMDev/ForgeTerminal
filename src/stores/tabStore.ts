@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import type { Tab, TabType, SplitLayout } from "@/types/terminal";
+import { useTerminalStore } from "./terminalStore";
 
 interface TabState {
   tabs: Tab[];
   activeTabId: string | null;
-  activeView: "terminal" | "editor" | "viewer";
+  activeView: "terminal" | "viewer";
   addTab: (tab: Tab) => void;
   removeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
-  setActiveView: (view: "terminal" | "editor" | "viewer") => void;
+  setActiveView: (view: "terminal" | "viewer") => void;
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateTab: (id: string, partial: Partial<Tab>) => void;
   togglePinTab: (id: string) => void;
@@ -27,11 +28,11 @@ export const useTabStore = create<TabState>((set, get) => ({
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.id,
-      activeView: tab.type === "viewer" ? "viewer" : tab.type === "terminal" || tab.type === "split" ? "terminal" : "editor",
+      activeView: tab.type === "viewer" ? "viewer" : "terminal",
     })),
 
-  removeTab: (id) =>
-    set((state) => {
+  removeTab: (id) => {
+    const result = set((state) => {
       const tab = state.tabs.find((t) => t.id === id);
       if (tab?.pinned) return state;
 
@@ -46,10 +47,7 @@ export const useTabStore = create<TabState>((set, get) => ({
           newActiveId = newTabs[nextIdx].id;
           const activeTab = newTabs[nextIdx];
           newActiveView =
-            activeTab.type === "viewer" ? "viewer" :
-            activeTab.type === "editor"
-              ? "editor"
-              : "terminal";
+            activeTab.type === "viewer" ? "viewer" : "terminal";
         } else {
           newActiveId = null;
         }
@@ -60,7 +58,24 @@ export const useTabStore = create<TabState>((set, get) => ({
         activeTabId: newActiveId,
         activeView: newActiveView,
       };
-    }),
+    });
+
+    // Auto-focus the remaining terminal after removal
+    setTimeout(() => {
+      const state = get();
+      const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
+      if (activeTab && (activeTab.type === "terminal" || activeTab.type === "split")) {
+        const focusedId = useTerminalStore.getState().focusedSessionId;
+        document.dispatchEvent(
+          new CustomEvent("focus-terminal", {
+            detail: focusedId ? { sessionId: focusedId } : undefined,
+          }),
+        );
+      }
+    }, 0);
+
+    return result;
+  },
 
   setActiveTab: (id) =>
     set((state) => {
@@ -69,10 +84,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       return {
         activeTabId: id,
         activeView:
-          tab.type === "viewer" ? "viewer" :
-          tab.type === "editor"
-            ? "editor"
-            : "terminal",
+          tab.type === "viewer" ? "viewer" : "terminal",
       };
     }),
 
@@ -116,10 +128,7 @@ export const useTabStore = create<TabState>((set, get) => ({
       tabs: [...s.tabs, newTab],
       activeTabId: newId,
       activeView:
-        newTab.type === "viewer" ? "viewer" :
-        newTab.type === "editor"
-          ? "editor"
-          : "terminal",
+        newTab.type === "viewer" ? "viewer" : "terminal",
     }));
 
     return newId;
@@ -215,13 +224,14 @@ export const useTabStore = create<TabState>((set, get) => ({
       }));
     }
 
-    // Focus the previous session in the split (or the last one if first was removed)
     if (newSplits.length > 0) {
       const removedIdx = tab.splitLayout.splits.indexOf(sessionId);
       const focusIdx = Math.max(0, Math.min(removedIdx, newSplits.length - 1));
-      document.dispatchEvent(
-        new CustomEvent("focus-terminal", { detail: { sessionId: newSplits[focusIdx] } }),
-      );
+      setTimeout(() => {
+        document.dispatchEvent(
+          new CustomEvent("focus-terminal", { detail: { sessionId: newSplits[focusIdx] } }),
+        );
+      }, 0);
     }
   },
 }));

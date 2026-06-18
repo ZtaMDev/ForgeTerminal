@@ -16,7 +16,7 @@ export interface SplitLayout {
   splits: string[];
 }
 
-export type TabType = "terminal" | "editor" | "viewer" | "split";
+export type TabType = "terminal" | "viewer" | "split";
 
 export interface Tab {
   id: string;

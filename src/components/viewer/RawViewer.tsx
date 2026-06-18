@@ -1,6 +1,9 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { fsReadFileBinary } from "@/lib/ipc";
-import { FileCode, FileText, Terminal } from "lucide-react";
+import { FileCode, FileText, Terminal, Loader2 } from "lucide-react";
+
+const MAX_HEX_SIZE = 50 * 1024 * 1024; // 50MB limit for hex view
+const CHUNK_SIZE = 1024 * 1024; // 1MB chunks for conversion
 
 interface RawViewerProps {
   filePath: string;
@@ -12,19 +15,25 @@ export function isBinaryFile(path: string): boolean {
   const ext = path.split(".").pop()?.toLowerCase() ?? "";
   const binaryExts = new Set([
     "exe", "dll", "so", "dylib", "bin", "dat", "obj", "lib",
-    "zip", "tar", "gz", "bz2", "7z", "rar", "xz", "zst",
-    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
-    "ttf", "otf", "woff", "woff2", "eot",
-    "mp3", "mp4", "avi", "mov", "mkv", "wav", "flac", "ogg",
-    "iso", "img", "dmg", "pyc", "class",
+    "pyc", "class",
   ]);
   return binaryExts.has(ext);
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binaryStr = atob(base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes;
 }
 
 function formatHexDump(data: Uint8Array): string {
   const lines: string[] = [];
   const charsPerLine = 16;
-  for (let offset = 0; offset < data.length; offset += charsPerLine) {
+  const len = Math.min(data.length, MAX_HEX_SIZE);
+  for (let offset = 0; offset < len; offset += charsPerLine) {
     const slice = data.slice(offset, offset + charsPerLine);
     const hex = Array.from(slice)
       .map((b) => b.toString(16).padStart(2, "0"))
@@ -35,6 +44,9 @@ function formatHexDump(data: Uint8Array): string {
     lines.push(
       `${offset.toString(16).padStart(8, "0")}  ${hex.padEnd(47)}  |${ascii}|`,
     );
+  }
+  if (data.length > MAX_HEX_SIZE) {
+    lines.push(`\n... file truncated (showing first ${(MAX_HEX_SIZE / 1024 / 1024).toFixed(0)}MB)`);
   }
   return lines.join("\n");
 }
@@ -53,32 +65,58 @@ export function RawViewer({ filePath }: RawViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("preview");
   const [loadedSize, setLoadedSize] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [fontSize, setFontSize] = useState(11);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setRawData(null);
+
     const load = async () => {
       try {
+        // Use setTimeout(0) to yield to React's render cycle before heavy work
+        await new Promise((r) => setTimeout(r, 0));
+        if (cancelled) return;
+
         const base64 = await fsReadFileBinary(filePath);
         if (cancelled) return;
 
-        const binaryStr = atob(base64);
-        const bytes = new Uint8Array(binaryStr.length);
-        for (let i = 0; i < binaryStr.length; i++) {
-          bytes[i] = binaryStr.charCodeAt(i);
+        // Convert in chunks to avoid blocking the UI
+        const totalLen = (base64.length * 3) / 4;
+        if (totalLen > MAX_HEX_SIZE) {
+          setLoadedSize(totalLen);
+          // For huge files, only load the first MAX_HEX_SIZE bytes
+          const truncated = base64.slice(0, Math.ceil((MAX_HEX_SIZE * 4) / 3));
+          const bytes = base64ToBytes(truncated);
+          if (cancelled) return;
+          setRawData(bytes);
+        } else {
+          const bytes = base64ToBytes(base64);
+          if (cancelled) return;
+          setRawData(bytes);
+          setLoadedSize(bytes.length);
         }
-        setRawData(bytes);
-        setLoadedSize(bytes.length);
 
-        const text = tryDecodeAsUTF8(bytes);
-        setViewMode(text !== null ? "text" : "hex");
-        setError(null);
+        setLoading(false);
       } catch (e) {
-        if (!cancelled) setError(`Failed to load file: ${e}`);
+        if (!cancelled) {
+          setError(`Failed to load file: ${e}`);
+          setLoading(false);
+        }
       }
     };
     load();
     return () => { cancelled = true; };
   }, [filePath]);
+
+  // Auto-detect view mode when data loads
+  useEffect(() => {
+    if (!rawData) return;
+    const text = tryDecodeAsUTF8(rawData);
+    setViewMode(text !== null ? (text.length > 100 * 1024 ? "preview" : "text") : "hex");
+  }, [rawData]);
 
   const hexDump = useMemo(
     () => (rawData ? formatHexDump(rawData) : ""),
@@ -94,7 +132,6 @@ export function RawViewer({ filePath }: RawViewerProps) {
     if (!rawData) return "";
     const text = tryDecodeAsUTF8(rawData);
     if (!text) return "";
-    // Show first 100KB for preview, or full if we have a smaller file
     const maxPreview = 100 * 1024;
     if (text.length <= maxPreview) return text;
     return text.slice(0, maxPreview) + "\n\n... (file truncated)";
@@ -106,12 +143,51 @@ export function RawViewer({ filePath }: RawViewerProps) {
     return previewText;
   }, [viewMode, hexDump, textContent, previewText]);
 
-  const fileName = filePath.split("\\").pop() ?? "";
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
+      e.preventDefault();
+      setFontSize((s) => Math.min(s + 2, 24));
+    } else if (e.ctrlKey && e.key === "-") {
+      e.preventDefault();
+      setFontSize((s) => Math.max(s - 2, 8));
+    } else if (e.ctrlKey && e.key === "0") {
+      e.preventDefault();
+      setFontSize(11);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
+  const fileSizeStr =
+    loadedSize > 1024 * 1024
+      ? `${(loadedSize / (1024 * 1024)).toFixed(1)} MB`
+      : loadedSize > 1024
+        ? `${(loadedSize / 1024).toFixed(1)} KB`
+        : `${loadedSize} B`;
+
+  const isLargeFile = loadedSize > MAX_HEX_SIZE;
 
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center panel-bg">
         <p className="text-red text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center panel-bg gap-3">
+        <Loader2 size={20} className="text-accent animate-spin" />
+        <span className="text-sm text-fg-subtle">Loading file...</span>
+        {loadedSize > 0 && (
+          <span className="text-xs text-fg-subtle/60">
+            {fileSizeStr}
+          </span>
+        )}
       </div>
     );
   }
@@ -123,13 +199,6 @@ export function RawViewer({ filePath }: RawViewerProps) {
       </div>
     );
   }
-
-  const fileSizeStr =
-    loadedSize > 1024 * 1024
-      ? `${(loadedSize / (1024 * 1024)).toFixed(1)} MB`
-      : loadedSize > 1024
-        ? `${(loadedSize / 1024).toFixed(1)} KB`
-        : `${loadedSize} B`;
 
   return (
     <div className="flex-1 flex flex-col panel-bg overflow-hidden">
@@ -167,13 +236,22 @@ export function RawViewer({ filePath }: RawViewerProps) {
           <FileCode size={12} />
           Text
         </button>
-        <span className="ml-auto text-xs text-fg-subtle tabular-nums">
+        {isLargeFile && (
+          <span className="text-[10px] text-yellow/80 ml-1">
+            (large file — showing first 50MB)
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-2 text-xs text-fg-subtle tabular-nums">
+          <span className="text-fg-subtle/60">Ctrl+±</span>
           {fileSizeStr}
         </span>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        <pre className="text-xs leading-relaxed p-4 font-mono text-fg select-text whitespace-pre">
+      <div className="flex-1 overflow-auto" tabIndex={0} data-viewer="true">
+        <pre
+          className="leading-relaxed p-4 font-mono text-fg select-text whitespace-pre"
+          style={{ fontSize: `${fontSize}px` }}
+        >
           {displayContent}
         </pre>
       </div>

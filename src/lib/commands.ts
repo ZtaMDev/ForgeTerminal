@@ -9,6 +9,15 @@ export function getAllCommands(): Command[] {
 
   commands.push(
     {
+      id: "passthrough.toggle",
+      name: "Toggle Passthrough Mode",
+      shortcut: "Ctrl+`",
+      category: "Terminal",
+      action: () => {
+        document.dispatchEvent(new CustomEvent("toggle-passthrough"));
+      },
+    },
+    {
       id: "terminal.new",
       name: "New Terminal",
       shortcut: "Ctrl+Shift+`",
@@ -36,12 +45,44 @@ export function getAllCommands(): Command[] {
       },
     },
     {
+      id: "terminal.toggle",
+      name: "Cycle Terminal Sessions",
+      category: "Terminal",
+      action: () => {
+        const { tabs: allTabs, activeTabId: activeId, setActiveTab } = useTabStore.getState();
+        const activeTab = allTabs.find((t) => t.id === activeId);
+        if (activeTab && (activeTab.type === "terminal" || activeTab.type === "split")) {
+          const { focusedSessionId, setFocusedSession } = useTerminalStore.getState();
+          if (activeTab.splitLayout && activeTab.splitLayout.splits.length > 1) {
+            const splits = activeTab.splitLayout.splits;
+            const idx = focusedSessionId ? splits.indexOf(focusedSessionId) : -1;
+            const next = (idx + 1) % splits.length;
+            setFocusedSession(splits[next]);
+            document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: splits[next] } }));
+          } else {
+            document.dispatchEvent(new CustomEvent("focus-terminal"));
+          }
+        } else {
+          const termTab = allTabs.find((t) => t.type === "terminal" || t.type === "split");
+          if (termTab) {
+            setActiveTab(termTab.id);
+            setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal")), 50);
+          }
+        }
+      },
+    },
+    {
       id: "terminal.split-horizontal",
       name: "Split Terminal Horizontally",
       shortcut: "Ctrl+\\",
       category: "Terminal",
       action: () => {
-        if (activeTabId) useTabStore.getState().splitHorizontal(activeTabId);
+        if (activeTabId) {
+          const newId = useTabStore.getState().splitHorizontal(activeTabId);
+          if (newId) {
+            setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } })), 100);
+          }
+        }
       },
     },
     {
@@ -50,7 +91,81 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+Shift+\\",
       category: "Terminal",
       action: () => {
-        if (activeTabId) useTabStore.getState().splitVertical(activeTabId);
+        if (activeTabId) {
+          const newId = useTabStore.getState().splitVertical(activeTabId);
+          if (newId) {
+            setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } })), 100);
+          }
+        }
+      },
+    },
+    {
+      id: "terminal.next-split",
+      name: "Next Split",
+      shortcut: "Ctrl+Shift+ArrowUp",
+      category: "Terminal",
+      action: () => {
+        if (!activeTabId) return;
+        const tab = tabs.find((t) => t.id === activeTabId);
+        if (!tab?.splitLayout || tab.splitLayout.splits.length < 2) return;
+        const splits = tab.splitLayout.splits;
+        const idx = focusedId ? splits.indexOf(focusedId) : -1;
+        const next = (idx + 1) % splits.length;
+        useTerminalStore.getState().setFocusedSession(splits[next]);
+        document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: splits[next] } }));
+      },
+    },
+    {
+      id: "terminal.prev-split",
+      name: "Previous Split",
+      shortcut: "Ctrl+Shift+ArrowDown",
+      category: "Terminal",
+      action: () => {
+        if (!activeTabId) return;
+        const tab = tabs.find((t) => t.id === activeTabId);
+        if (!tab?.splitLayout || tab.splitLayout.splits.length < 2) return;
+        const splits = tab.splitLayout.splits;
+        const idx = focusedId ? splits.indexOf(focusedId) : -1;
+        const prev = (idx - 1 + splits.length) % splits.length;
+        useTerminalStore.getState().setFocusedSession(splits[prev]);
+        document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: splits[prev] } }));
+      },
+    },
+    {
+      id: "terminal.copy",
+      name: "Copy",
+      shortcut: "Ctrl+Shift+C",
+      category: "Terminal",
+      action: () => {
+        document.execCommand("copy");
+      },
+    },
+    {
+      id: "terminal.paste",
+      name: "Paste",
+      shortcut: "Ctrl+Shift+V",
+      category: "Terminal",
+      action: () => {
+        navigator.clipboard.readText().then(async (text) => {
+          const id = useTerminalStore.getState().focusedSessionId;
+          if (id) {
+            const { ptyWrite } = await import("@/lib/ipc");
+            ptyWrite(id, text);
+          }
+        });
+      },
+    },
+    {
+      id: "terminal.search",
+      name: "Search Terminal",
+      shortcut: "Ctrl+Shift+F",
+      category: "Terminal",
+      action: () => {
+        const el = document.querySelector(".xterm")?.parentElement;
+        if (el) {
+          const searchEl = el.querySelector('[role="search"]') as HTMLElement;
+          searchEl?.focus();
+        }
       },
     },
     {
@@ -72,7 +187,7 @@ export function getAllCommands(): Command[] {
       },
     },
     {
-      id: "tab.close",
+      id: "tab.close-entire",
       name: "Close Entire Tab",
       shortcut: "Ctrl+Shift+W",
       category: "Tab",
@@ -123,7 +238,7 @@ export function getAllCommands(): Command[] {
     {
       id: "tab.duplicate",
       name: "Duplicate Tab",
-      shortcut: "Ctrl+D",
+      shortcut: "Ctrl+Shift+D",
       category: "Tab",
       action: () => {
         if (activeTabId) useTabStore.getState().duplicateTab(activeTabId);
@@ -138,28 +253,57 @@ export function getAllCommands(): Command[] {
       },
     },
     {
+      id: "tab.move-up",
+      name: "Move Tab Up",
+      shortcut: "Alt+ArrowUp",
+      category: "Tab",
+      action: () => {
+        const { tabs: allTabs, activeTabId: activeId, setActiveTab } = useTabStore.getState();
+        const idx = allTabs.findIndex((t) => t.id === activeId);
+        if (idx > 0) {
+          useTabStore.getState().reorderTabs(idx, idx - 1);
+        }
+      },
+    },
+    {
+      id: "tab.move-down",
+      name: "Move Tab Down",
+      shortcut: "Alt+ArrowDown",
+      category: "Tab",
+      action: () => {
+        const { tabs: allTabs, activeTabId: activeId, setActiveTab } = useTabStore.getState();
+        const idx = allTabs.findIndex((t) => t.id === activeId);
+        if (idx < allTabs.length - 1) {
+          useTabStore.getState().reorderTabs(idx, idx + 1);
+        }
+      },
+    },
+    ...[1,2,3,4,5,6,7,8,9].map((n) => ({
+      id: `tab.go-${n}`,
+      name: `Go to Tab ${n}`,
+      shortcut: `Ctrl+${n}`,
+      category: "Tab",
+      action: () => {
+        const { tabs: allTabs, setActiveTab } = useTabStore.getState();
+        const tab = allTabs[n - 1];
+        if (tab) {
+          setActiveTab(tab.id);
+          setTimeout(() => {
+            switch (tab.type) {
+              case "terminal": case "split": document.dispatchEvent(new CustomEvent("focus-terminal")); break;
+              case "viewer": (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus(); break;
+            }
+          }, 50);
+        }
+      },
+    })),
+    {
       id: "terminal.new-at",
       name: "New Terminal at Location...",
       shortcut: "Ctrl+Alt+`",
       category: "Terminal",
       action: () => {
         document.dispatchEvent(new CustomEvent("open-terminal-location-picker"));
-      },
-    },
-    {
-      id: "view.toggle-explorer",
-      name: "Toggle Explorer",
-      shortcut: "Ctrl+B",
-      category: "View",
-      action: () => {},
-    },
-    {
-      id: "view.change-explorer-root",
-      name: "Change Explorer Root...",
-      shortcut: "Ctrl+Shift+O",
-      category: "View",
-      action: () => {
-        document.dispatchEvent(new CustomEvent("open-explorer-root-picker"));
       },
     },
     {
@@ -175,6 +319,59 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+P",
       category: "View",
       action: () => {},
+    },
+    {
+      id: "view.fullscreen",
+      name: "Toggle Fullscreen",
+      shortcut: "F11",
+      category: "View",
+      action: () => {},
+    },
+    {
+      id: "view.release-focus",
+      name: "Release Focus",
+      shortcut: "Ctrl+Shift+Space",
+      category: "View",
+      action: () => {
+        (document.activeElement as HTMLElement)?.blur();
+      },
+    },
+    {
+      id: "view.open-settings",
+      name: "Open Settings",
+      shortcut: "Ctrl+,",
+      category: "View",
+      action: () => {},
+    },
+    {
+      id: "focus.terminal",
+      name: "Focus Terminal",
+      shortcut: "Ctrl+Shift+T",
+      category: "Focus",
+      action: () => {
+        const { tabs, activeTabId, setActiveTab } = useTabStore.getState();
+        const termTab = tabs.find((t) => t.type === "terminal" || t.type === "split");
+        if (termTab) {
+          setActiveTab(termTab.id);
+          setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal")), 50);
+        }
+      },
+    },
+    {
+      id: "focus.viewer",
+      name: "Focus Viewer",
+      shortcut: "Ctrl+Shift+U",
+      category: "Focus",
+      action: () => {
+        const { tabs, setActiveTab } = useTabStore.getState();
+        const viewerTab = tabs.find((t) => t.type === "viewer");
+        if (viewerTab) {
+          setActiveTab(viewerTab.id);
+          setTimeout(() => {
+            (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
+          }, 50);
+        }
+      },
     },
   );
 

@@ -26,15 +26,19 @@ export function TerminalStatus() {
     );
   }
 
-  const shellName = activeSession.shell
+  const shellPath = activeSession.shell;
+  const shellName = shellPath
+    .split(/[/\\]/)
+    .pop()!
     .replace(".exe", "")
-    .replace("/usr/bin/", "")
-    .replace("/bin/", "");
+    .replace(".EXE", "");
 
   return (
     <div className="flex items-center gap-2 text-fg">
       <Terminal size={12} className="text-green" />
-      <span className="text-green">{shellName || "shell"}</span>
+      <span className="text-green truncate max-w-[120px]" title={shellPath}>
+        {shellName || "shell"}
+      </span>
       <span className="text-fg-subtle">•</span>
       <span className="text-fg-subtle truncate max-w-[300px]">
         {activeSession.cwd || "~"}

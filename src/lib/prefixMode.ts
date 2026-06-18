@@ -1,4 +1,4 @@
-let _active = false;
+let _active = true;
 
 export function isPrefixActive(): boolean {
   return _active;

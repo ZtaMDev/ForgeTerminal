@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { fsReadFileBinary } from "@/lib/ipc";
-import { ZoomIn, ZoomOut, RotateCw } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCw, Loader2 } from "lucide-react";
 
 interface ImageViewerProps {
   filePath: string;
@@ -30,11 +30,13 @@ function getMimeType(path: string): string {
 export function ImageViewer({ filePath }: ImageViewerProps) {
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     const load = async () => {
       try {
         const base64 = await fsReadFileBinary(filePath);
@@ -42,8 +44,12 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
         const mime = getMimeType(filePath);
         setSrc(`data:${mime};base64,${base64}`);
         setError(null);
+        setLoading(false);
       } catch (e) {
-        if (!cancelled) setError(`Failed to load image: ${e}`);
+        if (!cancelled) {
+          setError(`Failed to load image: ${e}`);
+          setLoading(false);
+        }
       }
     };
     load();
@@ -55,6 +61,27 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
   const handleRotate = useCallback(() => setRotation((r) => (r + 90) % 360), []);
   const handleReset = useCallback(() => { setZoom(1); setRotation(0); }, []);
 
+  // Keyboard shortcuts for zoom/rotation
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        handleZoomIn();
+      } else if (e.ctrlKey && e.key === "-") {
+        e.preventDefault();
+        handleZoomOut();
+      } else if (e.ctrlKey && e.key === "0") {
+        e.preventDefault();
+        handleReset();
+      } else if (e.key === "r" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleRotate();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleZoomIn, handleZoomOut, handleRotate, handleReset]);
+
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center panel-bg">
@@ -65,10 +92,11 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
     );
   }
 
-  if (!src) {
+  if (loading || !src) {
     return (
-      <div className="flex-1 flex items-center justify-center panel-bg">
-        <span className="text-fg-subtle text-sm">Loading image...</span>
+      <div className="flex-1 flex flex-col items-center justify-center panel-bg gap-3">
+        <Loader2 size={20} className="text-accent animate-spin" />
+        <span className="text-sm text-fg-subtle">Loading image...</span>
       </div>
     );
   }
@@ -79,7 +107,7 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
         <button
           className="p-1 rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors"
           onClick={handleZoomOut}
-          title="Zoom Out"
+          title="Zoom Out (Ctrl+-)"
         >
           <ZoomOut size={14} />
         </button>
@@ -89,7 +117,7 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
         <button
           className="p-1 rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors"
           onClick={handleZoomIn}
-          title="Zoom In"
+          title="Zoom In (Ctrl+=)"
         >
           <ZoomIn size={14} />
         </button>
@@ -97,20 +125,20 @@ export function ImageViewer({ filePath }: ImageViewerProps) {
         <button
           className="p-1 rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors"
           onClick={handleRotate}
-          title="Rotate"
+          title="Rotate (R)"
         >
           <RotateCw size={14} />
         </button>
         <button
           className="p-1 rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors ml-auto"
           onClick={handleReset}
-          title="Reset Zoom"
+          title="Reset Zoom (Ctrl+0)"
         >
           <span className="text-xs">Reset</span>
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center overflow-auto">
+      <div className="flex-1 flex items-center justify-center overflow-auto" tabIndex={0} data-viewer="true">
         <img
           src={src}
           alt={filePath.split("\\").pop() ?? ""}

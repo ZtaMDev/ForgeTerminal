@@ -102,7 +102,7 @@ export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalCont
       id: "duplicate",
       label: "Duplicate Tab",
       icon: <Copy size={14} />,
-      shortcut: "Ctrl+D",
+      shortcut: "Ctrl+Shift+D",
       action: () => useTabStore.getState().duplicateTab(tab.id),
     },
   ];

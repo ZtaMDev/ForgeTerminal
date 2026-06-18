@@ -21,12 +21,6 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
         version: 1,
         tabs: [],
         layout: {
-          explorer: {
-            visible: true,
-            width: 260,
-            position: "left",
-            pinnedPath: null,
-          },
           activeTabId: null,
           activeView: "terminal",
         },

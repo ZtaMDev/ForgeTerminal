@@ -4,21 +4,26 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 import { matchShortcut, type ShortcutContext } from "@/lib/shortcuts";
 import { isPrefixActive, activatePrefix, deactivatePrefix } from "@/lib/prefixMode";
-import { showConfirm } from "@/stores/confirmStore";
 
 function preventBrowserDefaults(e: KeyboardEvent) {
-  if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma")) {
+  if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma" || e.code === "KeyJ" || e.code === "KeyU")) {
     e.preventDefault();
     e.stopPropagation();
   }
 }
 
-function focusIfTerminal(tabType: string) {
-  if (tabType === "terminal" || tabType === "split") {
-    setTimeout(() => {
-      document.dispatchEvent(new CustomEvent("focus-terminal"));
-    }, 50);
-  }
+function focusTabContent(tabType: string) {
+  setTimeout(() => {
+    switch (tabType) {
+      case "terminal":
+      case "split":
+        document.dispatchEvent(new CustomEvent("focus-terminal"));
+        break;
+      case "viewer":
+        (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
+        break;
+    }
+  }, 50);
 }
 
 export function useKeyboardShortcuts() {
@@ -30,21 +35,16 @@ export function useKeyboardShortcuts() {
       const { shortcuts } = config;
       const focused = document.activeElement;
       const isTerminalFocused = focused?.closest(".xterm") !== null;
-      const isEditorFocused = focused?.closest(".cm-editor") !== null;
-      const isInputFocused = focused?.tagName === "INPUT" || focused?.tagName === "TEXTAREA" || focused?.getAttribute("contenteditable") === "true";
-      const isExplorerFocused = focused?.closest('[data-explorer="true"]') !== null;
 
-      let context: ShortcutContext = "global";
-      if (isTerminalFocused) context = "terminal";
-      else if (isEditorFocused) context = "editor";
-      else if (isExplorerFocused) context = "explorer";
-      else if (isInputFocused) context = "global";
+      // Passthrough mode is ON by default.
+      // - Shortcuts ALWAYS intercept when passthrough is ON
+      // - Non-shortcut keys pass through to xterm
+      // - Ctrl+` toggles passthrough OFF (terminal-only mode)
+      //   so you can send shortcut combos directly to the terminal
 
-      // ─── PASSTHROUGH MODE: shortcuts intercept, everything else passthrough ──
-      // When the indicator is visible, shortcuts work regardless of DOM focus.
-      // Arrow keys cycle split focus. Non-shortcut keys reach xterm normally.
+      // ─── PASSTHROUGH MODE: ON (default) ──────────────────
       if (isPrefixActive()) {
-        // Ctrl+` always exits passthrough (focuses active session, hides indicator)
+        // Ctrl+` always exits passthrough (focuses active session)
         if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
           e.preventDefault();
           e.stopPropagation();
@@ -58,7 +58,7 @@ export function useKeyboardShortcuts() {
           return;
         }
 
-        // Arrow key split cycling: update store + dispatch focus-terminal for visual feedback
+        // Arrow key split cycling in splits
         const tabState = useTabStore.getState();
         const activeTab = tabState.tabs.find((t) => t.id === tabState.activeTabId);
         if (activeTab?.splitLayout && activeTab.splitLayout.splits.length > 1) {
@@ -66,7 +66,6 @@ export function useKeyboardShortcuts() {
           const focusedId = useTerminalStore.getState().focusedSessionId;
           const idx = focusedId ? splits.indexOf(focusedId) : -1;
           switch (e.code) {
-            case "ArrowUp":
             case "ArrowLeft": {
               const prev = (idx - 1 + splits.length) % splits.length;
               const prevSession = splits[prev];
@@ -78,7 +77,6 @@ export function useKeyboardShortcuts() {
               }
               break;
             }
-            case "ArrowDown":
             case "ArrowRight": {
               const next = (idx + 1) % splits.length;
               const nextSession = splits[next];
@@ -93,98 +91,80 @@ export function useKeyboardShortcuts() {
           }
         }
 
-        // Global shortcuts work in passthrough mode (close split, split, etc.)
-        const globalBinding = findBinding(shortcuts.global, e);
-        if (globalBinding) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAction(globalBinding, context);
-          return;
+        // Check all shortcuts (global + terminal)
+        const allBindings: [string, Record<string, string[]>][] = [
+          ["global", shortcuts.global],
+          ["terminal", shortcuts.terminal],
+        ];
+        for (const [category, bindings] of allBindings) {
+          const binding = findBinding(bindings, e);
+          if (binding) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleAction(binding, category as ShortcutContext);
+            return;
+          }
         }
 
         // No shortcut matched → passthrough to the focused element (xterm, etc.)
-        // Don't preventDefault — let xterm or the focused element handle it.
         return;
       }
 
-      // Ctrl+` toggles passthrough mode (indicator on/off)
-      // Only reached when NOT in passthrough mode.
-      // IMPORTANT: do NOT blur xterm — that would clear focusedSessionId.
-      // Passthrough mode intercepts shortcuts in capture phase; non-shortcut
-      // keys naturally reach the focused terminal (or fall through otherwise).
+      // ─── PASSTHROUGH MODE: OFF (terminal-only) ───────────
+      // All keys go directly to the terminal. Ctrl+` re-activates passthrough.
       if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         e.stopPropagation();
-        if (isTerminalFocused) {
-          activatePrefix();
-        } else {
+        if (!isTerminalFocused) {
           document.dispatchEvent(new CustomEvent("focus-terminal"));
-          activatePrefix();
         }
+        activatePrefix();
         return;
       }
 
-      // ─── TERMINAL HAS DOM FOCUS ───────────────────────────
-      // Let EVERYTHING through to xterm. DON'T call
-      // preventDefault here — xterm checks e.defaultPrevented
-      // and will skip processing if we do.
+      // All keys pass through to terminal without interception
       if (isTerminalFocused) {
         return;
       }
 
-      // ─── NON-TERMINAL (xterm blurred) ────────────────────
+      // Non-terminal focus: only prevent browser defaults
       preventBrowserDefaults(e);
-
-      // Editor shortcuts
-      if (context === "editor") {
-        const editorBinding = findBinding(shortcuts.editor, e);
-        if (editorBinding) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAction(editorBinding, context);
-          return;
-        }
-      }
-
-      // Explorer shortcuts
-      if (context === "explorer") {
-        const explorerBinding = findBinding(shortcuts.explorer, e);
-        if (explorerBinding) {
-          e.preventDefault();
-          e.stopPropagation();
-          handleExplorerAction(explorerBinding);
-          return;
-        }
-      }
-
-      // Global shortcuts
-      const globalBinding = findBinding(shortcuts.global, e);
-      if (globalBinding) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleAction(globalBinding, context);
-      }
     };
 
     document.addEventListener("keydown", handler, { capture: true });
 
-    // ── Bubble-phase handler: prevent browser defaults that xterm missed ──
-    // xterm calls preventDefault for keys it processes. This handler catches
-    // keys that xterm doesn't handle (e.g. Ctrl+Shift+P) and prevents the
-    // browser default (print dialog) without blocking xterm's processing.
-    const bubbleHandler = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return; // xterm already handled it
-      const isTerminalFocused = document.activeElement?.closest(".xterm") !== null;
-      if (isTerminalFocused) {
-        if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma")) {
-          e.preventDefault();
+    // ── Listen for external toggle requests (from command palette) ──
+    const togglePassthrough = () => {
+      if (isPrefixActive()) {
+        deactivatePrefix();
+      } else {
+        const focusedId = useTerminalStore.getState().focusedSessionId;
+        if (!focusedId) {
+          const termTab = useTabStore.getState().tabs.find(
+            (t) => t.type === "terminal" || t.type === "split",
+          );
+          if (termTab) {
+            document.dispatchEvent(new CustomEvent("focus-terminal"));
+          }
         }
+        activatePrefix();
+      }
+    };
+    document.addEventListener("toggle-passthrough", togglePassthrough);
+
+    // ── Bubble-phase handler: prevent browser defaults that xterm missed ──
+    const bubbleHandler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const isTerminalFocused = document.activeElement?.closest(".xterm") !== null;
+      if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma" || e.code === "KeyJ" || e.code === "KeyU")) {
+        e.preventDefault();
       }
     };
     document.addEventListener("keydown", bubbleHandler);
     return () => {
       document.removeEventListener("keydown", handler, { capture: true });
       document.removeEventListener("keydown", bubbleHandler);
+      document.removeEventListener("toggle-passthrough", togglePassthrough);
     };
   }, [config]);
 
@@ -198,47 +178,6 @@ export function useKeyboardShortcuts() {
       }
     }
     return null;
-  }
-
-  function cycleTerminalSession() {
-    const tabState = useTabStore.getState();
-    const termState = useTerminalStore.getState();
-    const { tabs, activeTabId } = tabState;
-    const activeTab = tabs.find((t) => t.id === activeTabId);
-    if (!activeTab || (activeTab.type !== "terminal" && activeTab.type !== "split")) return;
-
-    if (activeTab.type === "split" && activeTab.splitLayout && activeTab.splitLayout.splits.length > 1) {
-      const splits = activeTab.splitLayout.splits;
-      const focusedId = termState.focusedSessionId;
-      const currentIdx = focusedId ? splits.indexOf(focusedId) : -1;
-      const nextIdx = (currentIdx + 1) % splits.length;
-      const nextSession = splits[nextIdx];
-      if (nextSession) {
-        document.dispatchEvent(
-          new CustomEvent("focus-terminal", { detail: { sessionId: nextSession } }),
-        );
-        return;
-      }
-    }
-
-    document.dispatchEvent(new CustomEvent("focus-terminal"));
-  }
-
-  function handleExplorerAction(command: string) {
-    switch (command) {
-      case "focus-explorer": {
-        const el = document.querySelector('[data-explorer="true"]') as HTMLElement | null;
-        el?.focus();
-        break;
-      }
-      case "new-file":
-      case "new-folder":
-      case "rename":
-      case "delete":
-      case "refresh": {
-        break;
-      }
-    }
   }
 
   function handleAction(command: string, _context: ShortcutContext) {
@@ -283,16 +222,13 @@ export function useKeyboardShortcuts() {
             tabState.closeSplit(activeTabId, focusedId);
             break;
           }
-          // No focused session — warn before closing entire tab
-          showConfirm("No terminal selected. Close the entire tab?").then((ok) => {
-            if (ok) tabState.removeTab(activeTabId);
-          });
+          tabState.removeTab(activeTabId);
           break;
         }
         tabState.removeTab(activeTabId);
         break;
       }
-      case "close-split": {
+      case "close-entire-tab": {
         if (activeTabId) {
           const tab = tabs.find((t) => t.id === activeTabId);
           if (tab && !tab.pinned) {
@@ -306,7 +242,7 @@ export function useKeyboardShortcuts() {
         const idx = tabs.findIndex((t) => t.id === activeTabId);
         const next = (idx + 1) % tabs.length;
         tabState.setActiveTab(tabs[next].id);
-        focusIfTerminal(tabs[next].type);
+        focusTabContent(tabs[next].type);
         break;
       }
       case "prev-tab": {
@@ -314,7 +250,7 @@ export function useKeyboardShortcuts() {
         const idx = tabs.findIndex((t) => t.id === activeTabId);
         const prev = (idx - 1 + tabs.length) % tabs.length;
         tabState.setActiveTab(tabs[prev].id);
-        focusIfTerminal(tabs[prev].type);
+        focusTabContent(tabs[prev].type);
         break;
       }
       case "split-horizontal": {
@@ -332,6 +268,9 @@ export function useKeyboardShortcuts() {
               processId: null,
               createdAt: Date.now(),
             });
+            setTimeout(() => {
+              document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } }));
+            }, 100);
           }
         }
         break;
@@ -351,17 +290,15 @@ export function useKeyboardShortcuts() {
               processId: null,
               createdAt: Date.now(),
             });
+            setTimeout(() => {
+              document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } }));
+            }, 100);
           }
         }
         break;
       }
       case "command-palette": {
         document.dispatchEvent(new CustomEvent("toggle-command-palette"));
-        break;
-      }
-      case "toggle-explorer": {
-        const cfg = useConfigStore.getState();
-        cfg.setLayout({ explorerHidden: !cfg.config.layout.explorerHidden });
         break;
       }
       case "duplicate-tab": {
@@ -397,22 +334,23 @@ export function useKeyboardShortcuts() {
         document.dispatchEvent(new CustomEvent("open-terminal-location-picker"));
         break;
       }
-      case "change-explorer-root": {
-        document.dispatchEvent(new CustomEvent("open-explorer-root-picker"));
+      case "focus-terminal": {
+        const termTab = tabs.find((t) => t.type === "terminal" || t.type === "split");
+        if (termTab) {
+          tabState.setActiveTab(termTab.id);
+          setTimeout(() => {
+            document.dispatchEvent(new CustomEvent("focus-terminal"));
+          }, 50);
+        }
         break;
       }
-      case "toggle-terminal": {
-        const activeTab = tabs.find((t) => t.id === activeTabId);
-        if (activeTab && (activeTab.type === "terminal" || activeTab.type === "split")) {
-          cycleTerminalSession();
-        } else {
-          const termTab = tabs.find((t) => t.type === "terminal" || t.type === "split");
-          if (termTab) {
-            tabState.setActiveTab(termTab.id);
-            setTimeout(() => {
-              document.dispatchEvent(new CustomEvent("focus-terminal"));
-            }, 50);
-          }
+      case "focus-viewer": {
+        const viewerTab = tabs.find((t) => t.type === "viewer");
+        if (viewerTab) {
+          tabState.setActiveTab(viewerTab.id);
+          setTimeout(() => {
+            (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
+          }, 50);
         }
         break;
       }
@@ -429,7 +367,7 @@ export function useKeyboardShortcuts() {
         const tab = tabs[n - 1];
         if (tab) {
           tabState.setActiveTab(tab.id);
-          focusIfTerminal(tab.type);
+          focusTabContent(tab.type);
         }
         break;
       }

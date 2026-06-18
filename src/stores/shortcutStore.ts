@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ShortcutsConfig } from "@/types/config";
-export type ShortcutContext = "global" | "terminal" | "editor" | "explorer";
+export type ShortcutContext = "global" | "terminal";
 import { defaultShortcuts, matchShortcut } from "@/lib/shortcuts";
 
 type ShortcutCommand = string;

@@ -3,8 +3,6 @@ import type {
   ForgeConfig,
   ThemeConfig,
   TerminalConfig,
-  ExplorerConfig,
-  EditorConfig,
   LayoutConfig,
   ShortcutsConfig,
 } from "@/types/config";
@@ -34,30 +32,9 @@ const defaultConfig: ForgeConfig = {
     environment: {},
     args: [],
   },
-  explorer: {
-    position: "left",
-    width: 260,
-    showHiddenFiles: false,
-    autoReveal: true,
-    compactFolders: true,
-  },
-  editor: {
-    fontSize: 14,
-    fontFamily: '"JetBrains Mono", monospace',
-    tabSize: 4,
-    wordWrap: "off",
-    minimap: false,
-    lineNumbers: true,
-    bracketPairColorization: true,
-    formatOnSave: false,
-    autoClosingBrackets: true,
-    smoothScrolling: true,
-    cursorWidth: 2,
-  },
   layout: {
     tabPosition: "top",
     showStatusBar: true,
-    explorerHidden: false,
     panelDirection: "horizontal",
   },
   shortcuts: defaultShortcuts,
@@ -69,8 +46,6 @@ interface ConfigState {
   setConfig: (config: Partial<ForgeConfig>) => void;
   setTheme: (theme: Partial<ThemeConfig>) => void;
   setTerminal: (terminal: Partial<TerminalConfig>) => void;
-  setExplorer: (explorer: Partial<ExplorerConfig>) => void;
-  setEditor: (editor: Partial<EditorConfig>) => void;
   setLayout: (layout: Partial<LayoutConfig>) => void;
   setShortcuts: (shortcuts: Partial<ShortcutsConfig>) => void;
   loadConfig: () => Promise<void>;
@@ -99,22 +74,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       config: {
         ...state.config,
         terminal: { ...state.config.terminal, ...terminal },
-      },
-    })),
-
-  setExplorer: (explorer) =>
-    set((state) => ({
-      config: {
-        ...state.config,
-        explorer: { ...state.config.explorer, ...explorer },
-      },
-    })),
-
-  setEditor: (editor) =>
-    set((state) => ({
-      config: {
-        ...state.config,
-        editor: { ...state.config.editor, ...editor },
       },
     })),
 

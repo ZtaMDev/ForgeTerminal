@@ -78,7 +78,7 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
       id: "duplicate",
       label: "Duplicate",
       icon: <Copy size={14} />,
-      shortcut: "Ctrl+D",
+      shortcut: "Ctrl+Shift+D",
       action: () => {
         const tabStore = useTabStore.getState();
         const termStore = useTerminalStore.getState();

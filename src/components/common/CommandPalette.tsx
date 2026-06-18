@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 
 export interface Command {
@@ -24,6 +24,8 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
 
   const filtered = query
     ? commands.filter((cmd) =>
@@ -40,19 +42,44 @@ export function CommandPalette({
     }
   }, [isOpen]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const item = el.children[selectedIndex] as HTMLElement | undefined;
+    if (item) {
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }, [selectedIndex]);
+
+  // Native DOM keyboard handler — works regardless of React event system quirks
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handler = (e: KeyboardEvent) => {
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
-          setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
+          e.stopPropagation();
+          setSelectedIndex((i) => (i + 1) % filtered.length);
           break;
         case "ArrowUp":
           e.preventDefault();
-          setSelectedIndex((i) => Math.max(i - 1, 0));
+          e.stopPropagation();
+          setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
+          break;
+        case "Home":
+          e.preventDefault();
+          e.stopPropagation();
+          setSelectedIndex(0);
+          break;
+        case "End":
+          e.preventDefault();
+          e.stopPropagation();
+          setSelectedIndex(filtered.length - 1);
           break;
         case "Enter":
           e.preventDefault();
+          e.stopPropagation();
           if (filtered[selectedIndex]) {
             filtered[selectedIndex].action();
             onClose();
@@ -60,17 +87,22 @@ export function CommandPalette({
           break;
         case "Escape":
           e.preventDefault();
+          e.stopPropagation();
           onClose();
           break;
       }
-    },
-    [filtered, selectedIndex, onClose],
-  );
+    };
+
+    // Use capture phase to intercept before the app's own capture handler
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [isOpen, filtered, selectedIndex, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
       onClick={onClose}
     >
@@ -88,7 +120,6 @@ export function CommandPalette({
               setQuery(e.target.value);
               setSelectedIndex(0);
             }}
-            onKeyDown={handleKeyDown}
             placeholder="Type a command..."
             className="flex-1 bg-transparent border-none outline-none text-fg text-sm placeholder:text-fg-subtle"
           />
@@ -97,7 +128,7 @@ export function CommandPalette({
           </span>
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div ref={listRef} className="max-h-[400px] overflow-y-auto">
           {filtered.length === 0 && (
             <div className="px-4 py-6 text-center text-fg-subtle text-sm">
               No matching commands found
