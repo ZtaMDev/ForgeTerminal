@@ -30,7 +30,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Terminal", id: "rightClickPaste", label: "Right Click Paste", type: "toggle" as const, value: config.terminal.rightClickPaste, onChange: (v: unknown) => setTerminal({ rightClickPaste: v as boolean }) },
     { section: "Terminal", id: "scrollback", label: "Scrollback Lines", type: "number" as const, value: config.terminal.scrollback, min: 1000, max: 999999, step: 1000, onChange: (v: unknown) => setTerminal({ scrollback: v as number }) },
     { section: "Session", id: "sessionRestore", label: "Session Restoring", type: "toggle" as const, value: config.session.sessionRestore, onChange: (v: unknown) => setSession({ sessionRestore: v as boolean }) },
-    { section: "Session", id: "refocusOnReturn", label: "Refocus Terminal on Window Focus", type: "toggle" as const, value: config.session.refocusOnReturn, onChange: (v: unknown) => setSession({ refocusOnReturn: v as boolean }) },
+    { section: "Session", id: "showTutorial", label: "Show Tutorial", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("show-tutorial")); } },
     { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },
   ], [config, setTerminal, setSession, setLayout]);
 
@@ -43,7 +43,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   useEffect(() => {
     if (isOpen) {
       setSelectedIndex(0);
-      requestAnimationFrame(() => overlayRef.current?.focus());
+      if (!document.querySelector('[data-tutorial="true"]')) {
+        requestAnimationFrame(() => overlayRef.current?.focus());
+      }
     }
   }, [isOpen]);
 
@@ -95,6 +97,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
               const opts = item.options!;
               const idx = opts.indexOf(item.value as string);
               item.onChange(opts[(idx + 1) % opts.length]);
+            } else if (item.type === "action") {
+              item.action();
             }
             break;
           }
@@ -234,6 +238,15 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                         <Plus size={12} />
                       </button>
                     </div>
+                  )}
+
+                  {item.type === "action" && (
+                    <button
+                      className="px-3 py-1 text-xs text-bg bg-accent rounded hover:opacity-90 transition-opacity flex-shrink-0"
+                      onClick={(e) => { e.stopPropagation(); item.action(); }}
+                    >
+                      Open
+                    </button>
                   )}
 
                   {item.type === "text" && (

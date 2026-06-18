@@ -58,6 +58,13 @@ export default function App() {
 
   useEffect(() => {
     if (!loaded) return;
+
+    if (!localStorage.getItem("forge-tutorial-shown")) {
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent("show-tutorial"));
+      }, 500);
+    }
+
     const unsubTab = useTabStore.subscribe(() => saveToStorage());
     const unsubTerm = useTerminalStore.subscribe(() => saveToStorage());
 
@@ -72,9 +79,6 @@ export default function App() {
     window.addEventListener("beforeunload", saveToStorage);
 
     const handleRefocus = () => {
-      const cfg = useConfigStore.getState().config;
-      if (!cfg.session.refocusOnReturn) return;
-
       const lastId = useTerminalStore.getState().lastFocusedSessionId;
       const tabState = useTabStore.getState();
 

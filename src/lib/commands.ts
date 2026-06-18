@@ -9,12 +9,12 @@ export function getAllCommands(): Command[] {
 
   commands.push(
     {
-      id: "passthrough.toggle",
-      name: "Toggle Passthrough Mode",
-      shortcut: "Ctrl+`",
+      id: "terminal.new-at",
+      name: "New Terminal at Path...",
+      shortcut: "Ctrl+Alt+`",
       category: "Terminal",
       action: () => {
-        document.dispatchEvent(new CustomEvent("toggle-passthrough"));
+        document.dispatchEvent(new CustomEvent("open-path-input"));
       },
     },
     {
@@ -102,7 +102,7 @@ export function getAllCommands(): Command[] {
     {
       id: "terminal.next-split",
       name: "Next Split",
-      shortcut: "Ctrl+Shift+ArrowUp",
+      shortcut: "Ctrl+Shift+ArrowRight",
       category: "Terminal",
       action: () => {
         if (!activeTabId) return;
@@ -118,7 +118,7 @@ export function getAllCommands(): Command[] {
     {
       id: "terminal.prev-split",
       name: "Previous Split",
-      shortcut: "Ctrl+Shift+ArrowDown",
+      shortcut: "Ctrl+Shift+ArrowLeft",
       category: "Terminal",
       action: () => {
         if (!activeTabId) return;

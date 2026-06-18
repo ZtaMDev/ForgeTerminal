@@ -42,7 +42,6 @@ export interface ShortcutsConfig {
 
 export interface SessionConfig {
   sessionRestore: boolean;
-  refocusOnReturn: boolean;
 }
 
 export interface ForgeConfig {

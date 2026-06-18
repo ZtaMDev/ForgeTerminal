@@ -43,7 +43,9 @@ export function CommandPalette({
     if (isOpen) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
+      if (!document.querySelector('[data-tutorial="true"]')) {
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }
     }
   }, [isOpen]);
 
@@ -68,6 +70,7 @@ export function CommandPalette({
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
+      if (document.querySelector('[data-tutorial="true"]')) return;
       const currentItems = filteredRef.current;
       const currentIdx = selectedIndexRef.current;
 

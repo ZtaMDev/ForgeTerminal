@@ -41,7 +41,6 @@ const defaultConfig: ForgeConfig = {
   shortcuts: defaultShortcuts,
   session: {
     sessionRestore: true,
-    refocusOnReturn: true,
   },
 };
 

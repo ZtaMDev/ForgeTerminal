@@ -26,6 +26,10 @@ export function useKeyboardShortcuts() {
   useEffect(() => {
     // ── Capture-phase handler: shortcuts ──
     const handler = (e: KeyboardEvent) => {
+      if (document.querySelector('[data-tutorial="true"]')) {
+        return;
+      }
+
       if (document.querySelector('[data-overlay="true"]')) {
         if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Escape", "Home", "End"].includes(e.key)) {
           return;
@@ -64,35 +68,34 @@ export function useKeyboardShortcuts() {
           return;
         }
 
-        // Arrow key split cycling in splits
-        const tabState = useTabStore.getState();
-        const activeTab = tabState.tabs.find((t) => t.id === tabState.activeTabId);
-        if (activeTab?.splitLayout && activeTab.splitLayout.splits.length > 1) {
-          const splits = activeTab.splitLayout.splits;
-          const focusedId = useTerminalStore.getState().focusedSessionId;
-          const idx = focusedId ? splits.indexOf(focusedId) : -1;
-          switch (e.code) {
-            case "ArrowLeft": {
+        // Ctrl+Shift+ArrowLeft/Right cycle splits (only when passthrough is ON)
+        if (e.ctrlKey && e.shiftKey && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
+          const tabState = useTabStore.getState();
+          const activeTab = tabState.tabs.find((t) => t.id === tabState.activeTabId);
+          if (activeTab?.splitLayout && activeTab.splitLayout.splits.length > 1) {
+            const splits = activeTab.splitLayout.splits;
+            const focusedId = useTerminalStore.getState().focusedSessionId;
+            const idx = focusedId ? splits.indexOf(focusedId) : -1;
+            if (e.code === "ArrowLeft") {
               const prev = (idx - 1 + splits.length) % splits.length;
               const prevSession = splits[prev];
               if (prevSession && prev !== idx) {
                 e.preventDefault();
+                e.stopPropagation();
                 useTerminalStore.getState().setFocusedSession(prevSession);
                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: prevSession } }));
                 return;
               }
-              break;
-            }
-            case "ArrowRight": {
+            } else {
               const next = (idx + 1) % splits.length;
               const nextSession = splits[next];
               if (nextSession && next !== idx) {
                 e.preventDefault();
+                e.stopPropagation();
                 useTerminalStore.getState().setFocusedSession(nextSession);
                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: nextSession } }));
                 return;
               }
-              break;
             }
           }
         }
@@ -366,6 +369,10 @@ export function useKeyboardShortcuts() {
           tabState.setActiveTab(tab.id);
           focusTabContent(tab.type);
         }
+        break;
+      }
+      case "new-terminal-at": {
+        document.dispatchEvent(new CustomEvent("open-path-input"));
         break;
       }
       case "font-increase": {

@@ -7,6 +7,8 @@ import { TerminalTab } from "@/components/terminal/TerminalTab";
 import { CommandPalette } from "@/components/common/CommandPalette";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { RenameDialog } from "@/components/common/RenameDialog";
+import { PathInputDialog } from "@/components/common/PathInputDialog";
+import { Tutorial } from "@/components/common/Tutorial";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
@@ -26,6 +28,34 @@ export function MainLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [renameTabId, setRenameTabId] = useState<string | null>(null);
   const [renameCurrentName, setRenameCurrentName] = useState("");
+  const [pathDialogOpen, setPathDialogOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+
+  const handlePathConfirm = useCallback((path: string) => {
+    const id = crypto.randomUUID();
+    useTabStore.getState().addTab({
+      id,
+      type: "terminal",
+      title: "Terminal",
+      sessionId: id,
+      pinned: false,
+      createdAt: Date.now(),
+    });
+    useTerminalStore.getState().addSession({
+      id,
+      title: "Terminal",
+      shell: "",
+      cwd: path,
+      cols: 80,
+      rows: 24,
+      processId: null,
+      createdAt: Date.now(),
+    });
+    setPathDialogOpen(false);
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent("focus-terminal"));
+    }, 100);
+  }, []);
 
   const handleRenameConfirm = useCallback((name: string) => {
     if (renameTabId) {
@@ -51,8 +81,22 @@ export function MainLayout() {
     const toggleSettings = () => {
       setSettingsOpen((p) => !p);
     };
+    const openPathInput = () => {
+      setPathDialogOpen(true);
+    };
+    const showTutorial = () => {
+      setTutorialOpen(true);
+    };
     document.addEventListener("toggle-command-palette", togglePalette);
     document.addEventListener("toggle-settings-panel", toggleSettings);
+    document.addEventListener("open-path-input", openPathInput);
+    document.addEventListener("show-tutorial", showTutorial);
+
+    const closeOverlays = () => {
+      setPaletteOpen(false);
+      setSettingsOpen(false);
+    };
+    document.addEventListener("close-overlays", closeOverlays);
     document.addEventListener("open-rename-dialog", openRename);
     document.addEventListener("contextmenu", blockContextMenu);
     return () => {
@@ -60,10 +104,13 @@ export function MainLayout() {
       document.removeEventListener("toggle-settings-panel", toggleSettings);
       document.removeEventListener("open-rename-dialog", openRename);
       document.removeEventListener("contextmenu", blockContextMenu);
+      document.removeEventListener("open-path-input", openPathInput);
+      document.removeEventListener("show-tutorial", showTutorial);
+      document.removeEventListener("close-overlays", closeOverlays);
     };
   }, []);
 
-  const commands = tabs.length > 0 ? getAllCommands() : [];
+  const commands = getAllCommands();
 
   function restoreFocus() {
     const focusedId = useTerminalStore.getState().focusedSessionId;
@@ -136,6 +183,23 @@ export function MainLayout() {
         isOpen={settingsOpen}
         onClose={() => {
           setSettingsOpen(false);
+          restoreFocus();
+        }}
+      />
+
+      <Tutorial
+        isOpen={tutorialOpen}
+        onClose={() => {
+          setTutorialOpen(false);
+          localStorage.setItem("forge-tutorial-shown", "1");
+        }}
+      />
+
+      <PathInputDialog
+        isOpen={pathDialogOpen}
+        onConfirm={handlePathConfirm}
+        onCancel={() => {
+          setPathDialogOpen(false);
           restoreFocus();
         }}
       />
