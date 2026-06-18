@@ -40,9 +40,15 @@ export interface ShortcutsConfig {
   terminal: Record<string, string[]>;
 }
 
+export interface SessionConfig {
+  sessionRestore: boolean;
+  refocusOnReturn: boolean;
+}
+
 export interface ForgeConfig {
   theme: ThemeConfig;
   terminal: TerminalConfig;
   layout: LayoutConfig;
   shortcuts: ShortcutsConfig;
+  session: SessionConfig;
 }

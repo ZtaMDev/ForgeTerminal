@@ -2,6 +2,30 @@ import { create } from "zustand";
 import type { Tab, TabType, SplitLayout } from "@/types/terminal";
 import { useTerminalStore } from "./terminalStore";
 
+const STORAGE_KEY = "forge-session";
+
+function saveToStorage() {
+  try {
+    const { tabs } = useTabStore.getState();
+    const sessions = Array.from(useTerminalStore.getState().sessions.values());
+    const data = JSON.stringify({ tabs, sessions });
+    localStorage.setItem(STORAGE_KEY, data);
+  } catch { /* ignore */ }
+}
+
+function loadFromStorage(): { tabs: Tab[]; sessions: { id: string; title: string; shell: string; cwd: string; cols: number; rows: number; createdAt: number }[] } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
+}
+
+export { saveToStorage, loadFromStorage };
+
 interface TabState {
   tabs: Tab[];
   activeTabId: string | null;

@@ -3,7 +3,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useConfigStore } from "@/stores/configStore";
 import { isPrefixActive } from "@/lib/prefixMode";
 import { TerminalStatus } from "./TerminalStatus";
-import { Image, FileType } from "lucide-react";
+import { Image, FileType, Settings } from "lucide-react";
 import { isImageFile } from "@/components/viewer/ImageViewer";
 
 export function StatusBar() {
@@ -62,6 +62,17 @@ export function StatusBar() {
         <span className="hover:text-fg cursor-default" title="Command Palette">
           Ctrl+Shift+P
         </span>
+        <span className="text-surface1">|</span>
+        <span className="hover:text-fg cursor-default" title="Settings (Ctrl+,)">
+          Ctrl+,
+        </span>
+        <button
+          className="w-5 h-5 flex items-center justify-center rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors"
+          title="Open Settings"
+          onClick={() => document.dispatchEvent(new CustomEvent("toggle-settings-panel"))}
+        >
+          <Settings size={12} />
+        </button>
       </div>
     </div>
   );

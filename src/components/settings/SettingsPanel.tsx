@@ -1,0 +1,262 @@
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useConfigStore } from "@/stores/configStore";
+import { X, Minus, Plus, ChevronRight } from "lucide-react";
+
+interface SettingsPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const cursorOptions = ["block", "underline", "bar"];
+const bellOptions = ["none", "sound", "visual"];
+
+export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
+  const config = useConfigStore((s) => s.config);
+  const { setTerminal, setSession, setLayout } = useConfigStore();
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const selectedIndexRef = useRef(0);
+  const itemsRef = useRef<(ReturnType<typeof createItems>)[0][]>([]);
+
+  const createItems = useCallback(() => [
+    { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
+    { section: "Terminal", id: "fontSize", label: "Font Size", type: "number" as const, value: config.terminal.fontSize, min: 6, max: 72, step: 1, onChange: (v: unknown) => setTerminal({ fontSize: v as number }) },
+    { section: "Terminal", id: "lineHeight", label: "Line Height", type: "number" as const, value: config.terminal.lineHeight, min: 0.5, max: 3, step: 0.1, onChange: (v: unknown) => setTerminal({ lineHeight: v as number }) },
+    { section: "Terminal", id: "cursorStyle", label: "Cursor Style", type: "select" as const, value: config.terminal.cursorStyle, options: cursorOptions, onChange: (v: unknown) => setTerminal({ cursorStyle: v as "block" | "underline" | "bar" }) },
+    { section: "Terminal", id: "cursorBlink", label: "Cursor Blink", type: "toggle" as const, value: config.terminal.cursorBlink, onChange: (v: unknown) => setTerminal({ cursorBlink: v as boolean }) },
+    { section: "Terminal", id: "bellStyle", label: "Bell Style", type: "select" as const, value: config.terminal.bellStyle, options: bellOptions, onChange: (v: unknown) => setTerminal({ bellStyle: v as "none" | "sound" | "visual" }) },
+    { section: "Terminal", id: "copyOnSelect", label: "Copy on Select", type: "toggle" as const, value: config.terminal.copyOnSelect, onChange: (v: unknown) => setTerminal({ copyOnSelect: v as boolean }) },
+    { section: "Terminal", id: "rightClickPaste", label: "Right Click Paste", type: "toggle" as const, value: config.terminal.rightClickPaste, onChange: (v: unknown) => setTerminal({ rightClickPaste: v as boolean }) },
+    { section: "Terminal", id: "scrollback", label: "Scrollback Lines", type: "number" as const, value: config.terminal.scrollback, min: 1000, max: 999999, step: 1000, onChange: (v: unknown) => setTerminal({ scrollback: v as number }) },
+    { section: "Session", id: "sessionRestore", label: "Session Restoring", type: "toggle" as const, value: config.session.sessionRestore, onChange: (v: unknown) => setSession({ sessionRestore: v as boolean }) },
+    { section: "Session", id: "refocusOnReturn", label: "Refocus Terminal on Window Focus", type: "toggle" as const, value: config.session.refocusOnReturn, onChange: (v: unknown) => setSession({ refocusOnReturn: v as boolean }) },
+    { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },
+  ], [config, setTerminal, setSession, setLayout]);
+
+  const items = useMemo(createItems, [config, setTerminal, setSession, setLayout]);
+
+  // Keep refs in sync for native handler
+  useEffect(() => { itemsRef.current = items; }, [items]);
+  useEffect(() => { selectedIndexRef.current = selectedIndex; }, [selectedIndex]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIndex(0);
+      requestAnimationFrame(() => overlayRef.current?.focus());
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    const list = listRef.current;
+    const options = list.querySelectorAll('[role="option"]');
+    const child = options[selectedIndex] as HTMLElement | undefined;
+    if (child) {
+      const itemRect = child.getBoundingClientRect();
+      const containerRect = list.getBoundingClientRect();
+      const relTop = itemRect.top - containerRect.top;
+      const relBottom = itemRect.bottom - containerRect.top;
+      if (relTop < 0) {
+        list.scrollTop += relTop;
+      } else if (relBottom > list.clientHeight) {
+        list.scrollTop += relBottom - list.clientHeight;
+      }
+    }
+  }, [selectedIndex]);
+
+  // Native DOM handler as primary (avoids React event delegation issues)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      const currentItems = itemsRef.current;
+      const currentIdx = selectedIndexRef.current;
+
+      const handle = (action: string) => {
+        switch (action) {
+          case "down":
+            setSelectedIndex((i) => Math.min(i + 1, currentItems.length - 1));
+            break;
+          case "up":
+            setSelectedIndex((i) => Math.max(i - 1, 0));
+            break;
+          case "home":
+            setSelectedIndex(0);
+            break;
+          case "end":
+            setSelectedIndex(currentItems.length - 1);
+            break;
+          case "activate": {
+            const item = currentItems[currentIdx];
+            if (!item) break;
+            if (item.type === "toggle") {
+              item.onChange(!item.value);
+            } else if (item.type === "select") {
+              const opts = item.options!;
+              const idx = opts.indexOf(item.value as string);
+              item.onChange(opts[(idx + 1) % opts.length]);
+            }
+            break;
+          }
+          case "left": {
+            const item = currentItems[currentIdx];
+            if (!item) break;
+            if (item.type === "select") {
+              const opts = item.options!;
+              const idx = opts.indexOf(item.value as string);
+              item.onChange(opts[(idx - 1 + opts.length) % opts.length]);
+            } else if (item.type === "number") {
+              item.onChange(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)));
+            }
+            break;
+          }
+          case "right": {
+            const item = currentItems[currentIdx];
+            if (!item) break;
+            if (item.type === "select") {
+              const opts = item.options!;
+              const idx = opts.indexOf(item.value as string);
+              item.onChange(opts[(idx + 1) % opts.length]);
+            } else if (item.type === "number") {
+              item.onChange(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)));
+            }
+            break;
+          }
+          case "close":
+            onClose();
+            break;
+        }
+      };
+
+      switch (e.key) {
+        case "ArrowDown": e.preventDefault(); e.stopPropagation(); handle("down"); break;
+        case "ArrowUp": e.preventDefault(); e.stopPropagation(); handle("up"); break;
+        case "Home": e.preventDefault(); e.stopPropagation(); handle("home"); break;
+        case "End": e.preventDefault(); e.stopPropagation(); handle("end"); break;
+        case "Enter":
+        case " ": e.preventDefault(); e.stopPropagation(); handle("activate"); break;
+        case "ArrowLeft": e.preventDefault(); e.stopPropagation(); handle("left"); break;
+        case "ArrowRight": e.preventDefault(); e.stopPropagation(); handle("right"); break;
+        case "Escape": e.preventDefault(); e.stopPropagation(); handle("close"); break;
+      }
+    };
+
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [isOpen, onClose]);
+
+  if (!isOpen) return null;
+
+  let lastSection = "";
+
+  return (
+    <div
+      ref={overlayRef}
+      data-overlay="true"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] outline-none"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-[520px] max-w-[90vw] bg-bg-surface border border-surface1 rounded-lg shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-surface0">
+          <span className="text-sm font-medium text-fg">Settings</span>
+          <button
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface0 text-fg-subtle hover:text-fg transition-colors"
+            onClick={onClose}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div ref={listRef} className="max-h-[60vh] overflow-y-auto py-1">
+          {items.map((item, idx) => {
+            const showSection = item.section !== lastSection;
+            lastSection = item.section;
+            const isSelected = idx === selectedIndex;
+
+            return (
+              <div key={item.id}>
+                {showSection && (
+                  <div className="px-4 pt-3 pb-1 text-[10px] text-fg-subtle font-semibold uppercase tracking-wider">
+                    {item.section}
+                  </div>
+                )}
+                <div
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`flex items-center gap-3 px-4 py-2 cursor-pointer border-l-2 transition-colors ${
+                    isSelected
+                      ? "border-accent bg-surface1 text-fg font-medium"
+                      : "border-transparent text-fg-alt hover:bg-surface1/50 hover:border-l-2 hover:border-surface1"
+                  }`}
+                  onClick={() => {
+                    setSelectedIndex(idx);
+                    if (item.type === "toggle") {
+                      item.onChange(!item.value);
+                    } else if (item.type === "select") {
+                      const opts = item.options!;
+                      const i = opts.indexOf(item.value as string);
+                      item.onChange(opts[(i + 1) % opts.length]);
+                    }
+                  }}
+                >
+                  <span className="flex-1 text-sm truncate">{item.label}</span>
+
+                  {item.type === "toggle" && (
+                    <div className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${item.value ? "bg-accent" : "bg-surface1"}`}>
+                      <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${item.value ? "translate-x-4" : ""}`} />
+                    </div>
+                  )}
+
+                  {item.type === "select" && (
+                    <div className="flex items-center gap-1 text-xs text-fg-subtle bg-surface1 px-2 py-1 rounded flex-shrink-0">
+                      {item.value as string}
+                      <ChevronRight size={12} className="opacity-50" />
+                    </div>
+                  )}
+
+                  {item.type === "number" && (
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
+                        onClick={(e) => { e.stopPropagation(); item.onChange(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1))); }}
+                      >
+                        <Minus size={12} />
+                      </button>
+                      <span className="text-xs text-fg font-mono w-8 text-center">{item.value as number}</span>
+                      <button
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
+                        onClick={(e) => { e.stopPropagation(); item.onChange(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1))); }}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  {item.type === "text" && (
+                    <input
+                      className="w-48 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none text-right flex-shrink-0"
+                      value={item.value as string}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => item.onChange(e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 px-4 py-2 border-t border-surface0 text-[10px] text-fg-subtle">
+          <span className="bg-surface0 px-1.5 py-0.5 rounded">↑↓</span> Navigate
+          <span className="bg-surface0 px-1.5 py-0.5 rounded ml-1">Enter/Space</span> Toggle
+          <span className="bg-surface0 px-1.5 py-0.5 rounded ml-1">←→</span> Adjust
+          <span className="bg-surface0 px-1.5 py-0.5 rounded ml-1">Esc</span> Close
+        </div>
+      </div>
+    </div>
+  );
+}

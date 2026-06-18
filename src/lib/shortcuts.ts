@@ -30,7 +30,10 @@ export const defaultShortcuts: ShortcutsConfig = {
     "move-tab-down": ["Alt+ArrowDown"],
     "release-focus": ["Ctrl+Shift+Space"],
     "new-terminal-at": ["Ctrl+Alt+`"],
-    fullscreen: ["F11"],
+    "open-settings": ["Ctrl+,"],
+    "font-increase": ["Ctrl+="],
+    "font-decrease": ["Ctrl+-"],
+    "fullscreen": ["F11"],
   },
   terminal: {
     copy: ["Ctrl+Shift+C"],

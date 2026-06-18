@@ -289,41 +289,17 @@ export function getAllCommands(): Command[] {
         if (tab) {
           setActiveTab(tab.id);
           setTimeout(() => {
-            switch (tab.type) {
-              case "terminal": case "split": document.dispatchEvent(new CustomEvent("focus-terminal")); break;
-              case "viewer": (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus(); break;
+            if (tab.type === "terminal" || tab.type === "split") {
+              document.dispatchEvent(new CustomEvent("focus-terminal"));
             }
           }, 50);
         }
       },
     })),
     {
-      id: "terminal.new-at",
-      name: "New Terminal at Location...",
-      shortcut: "Ctrl+Alt+`",
-      category: "Terminal",
-      action: () => {
-        document.dispatchEvent(new CustomEvent("open-terminal-location-picker"));
-      },
-    },
-    {
       id: "view.command-palette",
       name: "Command Palette",
       shortcut: "Ctrl+Shift+P",
-      category: "View",
-      action: () => {},
-    },
-    {
-      id: "view.quick-open",
-      name: "Quick Open",
-      shortcut: "Ctrl+P",
-      category: "View",
-      action: () => {},
-    },
-    {
-      id: "view.fullscreen",
-      name: "Toggle Fullscreen",
-      shortcut: "F11",
       category: "View",
       action: () => {},
     },
@@ -341,7 +317,9 @@ export function getAllCommands(): Command[] {
       name: "Open Settings",
       shortcut: "Ctrl+,",
       category: "View",
-      action: () => {},
+      action: () => {
+        document.dispatchEvent(new CustomEvent("toggle-settings-panel"));
+      },
     },
     {
       id: "focus.terminal",
@@ -354,22 +332,6 @@ export function getAllCommands(): Command[] {
         if (termTab) {
           setActiveTab(termTab.id);
           setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal")), 50);
-        }
-      },
-    },
-    {
-      id: "focus.viewer",
-      name: "Focus Viewer",
-      shortcut: "Ctrl+Shift+U",
-      category: "Focus",
-      action: () => {
-        const { tabs, setActiveTab } = useTabStore.getState();
-        const viewerTab = tabs.find((t) => t.type === "viewer");
-        if (viewerTab) {
-          setActiveTab(viewerTab.id);
-          setTimeout(() => {
-            (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
-          }, 50);
         }
       },
     },

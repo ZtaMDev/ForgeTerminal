@@ -213,6 +213,7 @@ export function TerminalInstance({
     // Focus detection via element
     const handleFocus = () => {
       useTerminalStore.getState().setFocusedSession(sessionId);
+      useTerminalStore.getState().setLastFocusedSession(sessionId);
       document.dispatchEvent(
         new CustomEvent("terminal-focus", { detail: { sessionId } }),
       );
@@ -288,6 +289,25 @@ export function TerminalInstance({
       isSpawnedRef.current = false;
     };
   }, [sessionId]); // only recreate if sessionId changes
+
+  // Sync config changes to running xterm in real time
+  useEffect(() => {
+    const xterm = xtermRef.current;
+    if (!xterm) return;
+    xterm.options.fontSize = config.terminal.fontSize;
+    xterm.options.fontFamily = config.terminal.fontFamily;
+    xterm.options.lineHeight = config.terminal.lineHeight;
+    xterm.options.cursorBlink = config.terminal.cursorBlink;
+    xterm.options.cursorStyle = config.terminal.cursorStyle;
+    xterm.options.scrollback = config.terminal.scrollback;
+  }, [
+    config.terminal.fontSize,
+    config.terminal.fontFamily,
+    config.terminal.lineHeight,
+    config.terminal.cursorBlink,
+    config.terminal.cursorStyle,
+    config.terminal.scrollback,
+  ]);
 
   return (
     <div className="w-full h-full">

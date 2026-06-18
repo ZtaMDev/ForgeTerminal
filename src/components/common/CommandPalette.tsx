@@ -26,6 +26,8 @@ export function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const selectedIndexRef = useRef(0);
+  const filteredRef = useRef<Command[]>([]);
 
   const filtered = query
     ? commands.filter((cmd) =>
@@ -33,6 +35,9 @@ export function CommandPalette({
         cmd.category.toLowerCase().includes(query.toLowerCase()),
       )
     : commands;
+
+  useEffect(() => { filteredRef.current = filtered; }, [filtered]);
+  useEffect(() => { selectedIndexRef.current = selectedIndex; }, [selectedIndex]);
 
   useEffect(() => {
     if (isOpen) {
@@ -43,29 +48,39 @@ export function CommandPalette({
   }, [isOpen]);
 
   useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    const item = el.children[selectedIndex] as HTMLElement | undefined;
-    if (item) {
-      item.scrollIntoView({ block: "nearest" });
+    if (!listRef.current) return;
+    const list = listRef.current;
+    const options = list.querySelectorAll('[role="option"]');
+    const child = options[selectedIndex] as HTMLElement | undefined;
+    if (child) {
+      const itemRect = child.getBoundingClientRect();
+      const containerRect = list.getBoundingClientRect();
+      const relTop = itemRect.top - containerRect.top;
+      const relBottom = itemRect.bottom - containerRect.top;
+      if (relTop < 0) {
+        list.scrollTop += relTop;
+      } else if (relBottom > list.clientHeight) {
+        list.scrollTop += relBottom - list.clientHeight;
+      }
     }
   }, [selectedIndex]);
 
-  // Native DOM keyboard handler — works regardless of React event system quirks
   useEffect(() => {
     if (!isOpen) return;
-
     const handler = (e: KeyboardEvent) => {
+      const currentItems = filteredRef.current;
+      const currentIdx = selectedIndexRef.current;
+
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
           e.stopPropagation();
-          setSelectedIndex((i) => (i + 1) % filtered.length);
+          setSelectedIndex((i) => (i + 1) % currentItems.length);
           break;
         case "ArrowUp":
           e.preventDefault();
           e.stopPropagation();
-          setSelectedIndex((i) => (i - 1 + filtered.length) % filtered.length);
+          setSelectedIndex((i) => (i - 1 + currentItems.length) % currentItems.length);
           break;
         case "Home":
           e.preventDefault();
@@ -75,13 +90,13 @@ export function CommandPalette({
         case "End":
           e.preventDefault();
           e.stopPropagation();
-          setSelectedIndex(filtered.length - 1);
+          setSelectedIndex(currentItems.length - 1);
           break;
         case "Enter":
           e.preventDefault();
           e.stopPropagation();
-          if (filtered[selectedIndex]) {
-            filtered[selectedIndex].action();
+          if (currentItems[currentIdx]) {
+            currentItems[currentIdx].action();
             onClose();
           }
           break;
@@ -93,18 +108,19 @@ export function CommandPalette({
       }
     };
 
-    // Use capture phase to intercept before the app's own capture handler
-    window.addEventListener("keydown", handler, { capture: true });
-    return () => window.removeEventListener("keydown", handler, { capture: true });
-  }, [isOpen, filtered, selectedIndex, onClose]);
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-      onClick={onClose}
+      data-overlay="true"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] outline-none"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         className="w-[600px] max-w-[90vw] bg-bg-surface border border-surface1 rounded-lg shadow-2xl overflow-hidden"
@@ -138,18 +154,19 @@ export function CommandPalette({
           {filtered.map((cmd, idx) => (
             <div
               key={cmd.id}
-              className={`flex items-center gap-3 px-4 py-2 cursor-pointer ${
+              role="option"
+              aria-selected={idx === selectedIndex}
+              className={`flex items-center gap-3 px-4 py-2 cursor-pointer border-l-2 transition-colors ${
                 idx === selectedIndex
-                  ? "bg-surface0 text-fg"
-                  : "text-fg-alt hover:bg-surface0"
+                  ? "border-accent bg-surface1 text-fg font-medium"
+                  : "border-transparent text-fg-alt hover:bg-surface1/50 hover:border-l-2 hover:border-surface1"
               }`}
               onClick={() => {
                 cmd.action();
                 onClose();
               }}
-              onMouseEnter={() => setSelectedIndex(idx)}
             >
-              <span className="text-xs text-fg-subtle bg-surface1 px-1.5 py-0.5 rounded w-16 text-center flex-shrink-0">
+              <span className="text-xs text-fg-subtle bg-surface0 px-1.5 py-0.5 rounded w-16 text-center flex-shrink-0">
                 {cmd.category}
               </span>
               <span className="flex-1 text-sm truncate">{cmd.name}</span>

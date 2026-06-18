@@ -14,14 +14,8 @@ function preventBrowserDefaults(e: KeyboardEvent) {
 
 function focusTabContent(tabType: string) {
   setTimeout(() => {
-    switch (tabType) {
-      case "terminal":
-      case "split":
-        document.dispatchEvent(new CustomEvent("focus-terminal"));
-        break;
-      case "viewer":
-        (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
-        break;
+    if (tabType === "terminal" || tabType === "split") {
+      document.dispatchEvent(new CustomEvent("focus-terminal"));
     }
   }, 50);
 }
@@ -32,6 +26,12 @@ export function useKeyboardShortcuts() {
   useEffect(() => {
     // ── Capture-phase handler: shortcuts ──
     const handler = (e: KeyboardEvent) => {
+      if (document.querySelector('[data-overlay="true"]')) {
+        if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", " ", "Escape", "Home", "End"].includes(e.key)) {
+          return;
+        }
+      }
+
       const { shortcuts } = config;
       const focused = document.activeElement;
       const isTerminalFocused = focused?.closest(".xterm") !== null;
@@ -44,17 +44,23 @@ export function useKeyboardShortcuts() {
 
       // ─── PASSTHROUGH MODE: ON (default) ──────────────────
       if (isPrefixActive()) {
-        // Ctrl+` always exits passthrough (focuses active session)
+        // Ctrl+`:
+        // - If terminal is focused: toggle passthrough OFF (deactivate)
+        // - If terminal is NOT focused: just focus it, don't change passthrough
         if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
           e.preventDefault();
           e.stopPropagation();
-          const focusedId = useTerminalStore.getState().focusedSessionId;
-          document.dispatchEvent(
-            new CustomEvent("focus-terminal", {
-              detail: focusedId ? { sessionId: focusedId } : undefined,
-            }),
-          );
-          deactivatePrefix();
+          if (isTerminalFocused) {
+            const focusedId = useTerminalStore.getState().focusedSessionId;
+            document.dispatchEvent(
+              new CustomEvent("focus-terminal", {
+                detail: focusedId ? { sessionId: focusedId } : undefined,
+              }),
+            );
+            deactivatePrefix();
+          } else {
+            document.dispatchEvent(new CustomEvent("focus-terminal"));
+          }
           return;
         }
 
@@ -111,14 +117,15 @@ export function useKeyboardShortcuts() {
       }
 
       // ─── PASSTHROUGH MODE: OFF (terminal-only) ───────────
-      // All keys go directly to the terminal. Ctrl+` re-activates passthrough.
+      // All keys go directly to the terminal. Ctrl+` reactivates passthrough.
       if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         e.stopPropagation();
-        if (!isTerminalFocused) {
+        if (isTerminalFocused) {
+          activatePrefix();
+        } else {
           document.dispatchEvent(new CustomEvent("focus-terminal"));
         }
-        activatePrefix();
         return;
       }
 
@@ -301,6 +308,10 @@ export function useKeyboardShortcuts() {
         document.dispatchEvent(new CustomEvent("toggle-command-palette"));
         break;
       }
+      case "open-settings": {
+        document.dispatchEvent(new CustomEvent("toggle-settings-panel"));
+        break;
+      }
       case "duplicate-tab": {
         if (activeTabId) {
           const newTabId = tabState.duplicateTab(activeTabId);
@@ -330,26 +341,12 @@ export function useKeyboardShortcuts() {
         }
         break;
       }
-      case "new-terminal-at": {
-        document.dispatchEvent(new CustomEvent("open-terminal-location-picker"));
-        break;
-      }
       case "focus-terminal": {
         const termTab = tabs.find((t) => t.type === "terminal" || t.type === "split");
         if (termTab) {
           tabState.setActiveTab(termTab.id);
           setTimeout(() => {
             document.dispatchEvent(new CustomEvent("focus-terminal"));
-          }, 50);
-        }
-        break;
-      }
-      case "focus-viewer": {
-        const viewerTab = tabs.find((t) => t.type === "viewer");
-        if (viewerTab) {
-          tabState.setActiveTab(viewerTab.id);
-          setTimeout(() => {
-            (document.querySelector('[data-viewer="true"]') as HTMLElement)?.focus();
           }, 50);
         }
         break;
@@ -369,6 +366,16 @@ export function useKeyboardShortcuts() {
           tabState.setActiveTab(tab.id);
           focusTabContent(tab.type);
         }
+        break;
+      }
+      case "font-increase": {
+        const cur = config.terminal.fontSize;
+        useConfigStore.getState().setTerminal({ fontSize: Math.min(72, cur + 1) });
+        break;
+      }
+      case "font-decrease": {
+        const cur = config.terminal.fontSize;
+        useConfigStore.getState().setTerminal({ fontSize: Math.max(6, cur - 1) });
         break;
       }
       default:

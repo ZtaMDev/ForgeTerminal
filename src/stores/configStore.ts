@@ -5,6 +5,7 @@ import type {
   TerminalConfig,
   LayoutConfig,
   ShortcutsConfig,
+  SessionConfig,
 } from "@/types/config";
 import { defaultShortcuts } from "@/lib/shortcuts";
 
@@ -38,6 +39,10 @@ const defaultConfig: ForgeConfig = {
     panelDirection: "horizontal",
   },
   shortcuts: defaultShortcuts,
+  session: {
+    sessionRestore: true,
+    refocusOnReturn: true,
+  },
 };
 
 interface ConfigState {
@@ -48,6 +53,7 @@ interface ConfigState {
   setTerminal: (terminal: Partial<TerminalConfig>) => void;
   setLayout: (layout: Partial<LayoutConfig>) => void;
   setShortcuts: (shortcuts: Partial<ShortcutsConfig>) => void;
+  setSession: (session: Partial<SessionConfig>) => void;
   loadConfig: () => Promise<void>;
   saveConfig: () => Promise<void>;
 }
@@ -93,6 +99,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       },
     })),
 
+  setSession: (session) =>
+    set((state) => ({
+      config: { ...state.config, session: { ...state.config.session, ...session } },
+    })),
+
   loadConfig: async () => {
     try {
       const { configLoad } = await import("@/lib/ipc");
@@ -100,18 +111,31 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       if (raw) {
         const parsed = JSON.parse(raw) as ForgeConfig;
         set({ config: { ...defaultConfig, ...parsed }, loaded: true });
-      } else {
-        set({ loaded: true });
+        return;
       }
-    } catch {
-      set({ loaded: true });
-    }
+    } catch { /* IPC not available */ }
+
+    try {
+      const raw = localStorage.getItem("forge-config");
+      if (raw) {
+        const parsed = JSON.parse(raw) as ForgeConfig;
+        set({ config: { ...defaultConfig, ...parsed }, loaded: true });
+        return;
+      }
+    } catch { /* ignore */ }
+
+    set({ loaded: true });
   },
 
   saveConfig: async () => {
     try {
       const { configSave } = await import("@/lib/ipc");
       await configSave(JSON.stringify(get().config, null, 2));
+      return;
+    } catch { /* IPC not available */ }
+
+    try {
+      localStorage.setItem("forge-config", JSON.stringify(get().config));
     } catch (e) {
       console.error("Failed to save config:", e);
     }

@@ -5,10 +5,12 @@ interface TerminalState {
   sessions: Map<string, TerminalSession>;
   activeSessionId: string | null;
   focusedSessionId: string | null;
+  lastFocusedSessionId: string | null;
   addSession: (session: TerminalSession) => void;
   removeSession: (id: string) => void;
   setActiveSession: (id: string | null) => void;
   setFocusedSession: (id: string | null) => void;
+  setLastFocusedSession: (id: string | null) => void;
   updateSession: (id: string, partial: Partial<TerminalSession>) => void;
   clearSessions: () => void;
 }
@@ -17,6 +19,7 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   sessions: new Map(),
   activeSessionId: null,
   focusedSessionId: null,
+  lastFocusedSessionId: null,
 
   addSession: (session) =>
     set((state) => {
@@ -42,6 +45,9 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   setFocusedSession: (id) =>
     set({ focusedSessionId: id }),
 
+  setLastFocusedSession: (id) =>
+    set({ lastFocusedSessionId: id }),
+
   updateSession: (id, partial) =>
     set((state) => {
       const newSessions = new Map(state.sessions);
@@ -53,5 +59,5 @@ export const useTerminalStore = create<TerminalState>((set) => ({
     }),
 
   clearSessions: () =>
-    set({ sessions: new Map(), activeSessionId: null, focusedSessionId: null }),
+    set({ sessions: new Map(), activeSessionId: null, focusedSessionId: null, lastFocusedSessionId: null }),
 }));

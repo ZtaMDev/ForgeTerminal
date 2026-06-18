@@ -5,6 +5,7 @@ import { WelcomeTab } from "@/components/tabs/WelcomeTab";
 import { StatusBar } from "@/components/statusbar/StatusBar";
 import { TerminalTab } from "@/components/terminal/TerminalTab";
 import { CommandPalette } from "@/components/common/CommandPalette";
+import { SettingsPanel } from "@/components/settings/SettingsPanel";
 import { RenameDialog } from "@/components/common/RenameDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useTabStore } from "@/stores/tabStore";
@@ -22,6 +23,7 @@ export function MainLayout() {
   const { tabs, activeTabId } = useTabStore();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [renameTabId, setRenameTabId] = useState<string | null>(null);
   const [renameCurrentName, setRenameCurrentName] = useState("");
 
@@ -46,11 +48,16 @@ export function MainLayout() {
     const blockContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
+    const toggleSettings = () => {
+      setSettingsOpen((p) => !p);
+    };
     document.addEventListener("toggle-command-palette", togglePalette);
+    document.addEventListener("toggle-settings-panel", toggleSettings);
     document.addEventListener("open-rename-dialog", openRename);
     document.addEventListener("contextmenu", blockContextMenu);
     return () => {
       document.removeEventListener("toggle-command-palette", togglePalette);
+      document.removeEventListener("toggle-settings-panel", toggleSettings);
       document.removeEventListener("open-rename-dialog", openRename);
       document.removeEventListener("contextmenu", blockContextMenu);
     };
@@ -123,6 +130,14 @@ export function MainLayout() {
           restoreFocus();
         }}
         commands={commands}
+      />
+
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => {
+          setSettingsOpen(false);
+          restoreFocus();
+        }}
       />
 
       <RenameDialog
