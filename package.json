@@ -2,7 +2,7 @@
   "name": "forge",
   "private": true,
   "version": "0.1.0",
-  "description": "Forge - Terminal Multiplexer",
+  "description": "Forge - Terminal Emulator / Multiplexer",
   "type": "module",
   "scripts": {
     "dev": "vite",

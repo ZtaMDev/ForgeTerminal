@@ -34,13 +34,13 @@ export function WelcomeTab() {
   return (
     <div className="flex-1 flex items-center justify-center panel-bg select-none">
       <div className="flex flex-col items-center gap-6 text-center px-8">
-        <ForgeLogo size={48} />
+        <ForgeLogo size={128} bg={false} />
         <div>
           <h1 className="text-2xl font-bold text-fg mb-1">
             Welcome
           </h1>
           <p className="text-sm text-fg-subtle">
-            Terminal Multiplexer
+            Terminal Emulator / Multiplexer
           </p>
         </div>
 
