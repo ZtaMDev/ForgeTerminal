@@ -7,7 +7,7 @@ import { loadFromStorage, saveToStorage } from "@/stores/tabStore";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Loader2, Terminal } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { getMatches } from "@tauri-apps/plugin-cli";
+import { getProcessArgs } from "@/lib/ipc";
 
 export default function App() {
   const { loadConfig, loaded, config } = useConfigStore();
@@ -54,12 +54,15 @@ export default function App() {
 
       // Check CLI args
       try {
-        const matches = await getMatches();
-        if (matches.args.path && matches.args.path.value) {
-          openSessionAt(matches.args.path.value as string);
+        const args = await getProcessArgs();
+        if (args && args.length > 1) {
+          const pathArg = args.find((a: string) => !a.startsWith("-") && !a.endsWith("exe") && !a.endsWith("forge"));
+          if (pathArg) {
+            openSessionAt(pathArg);
+          }
         }
       } catch (e) {
-        // plugin-cli might not be ready or fail
+        // Failed to get process args
       }
 
       setShowLoader(false);

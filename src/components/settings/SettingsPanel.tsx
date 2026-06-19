@@ -14,7 +14,7 @@ type SettingItem = {
   section: string;
   id: string;
   label: string;
-  type: "text" | "number" | "select" | "toggle" | "action";
+  type: "text" | "number" | "select" | "toggle" | "action" | "shell";
   value?: unknown;
   min?: number;
   max?: number;
@@ -38,6 +38,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const createItems = useCallback((): SettingItem[] => [
+    { section: "Terminal", id: "defaultShell", label: "Default Shell", type: "shell" as const, value: config.terminal.defaultShell, options: ["powershell.exe", "cmd.exe", "bash.exe", "custom"], onChange: (v: unknown) => setTerminal({ defaultShell: v as string }) },
     { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
     { section: "Terminal", id: "fontSize", label: "Font Size", type: "number" as const, value: config.terminal.fontSize, min: 6, max: 72, step: 1, onChange: (v: unknown) => setTerminal({ fontSize: v as number }) },
     { section: "Terminal", id: "lineHeight", label: "Line Height", type: "number" as const, value: config.terminal.lineHeight, min: 0.5, max: 3, step: 0.1, onChange: (v: unknown) => setTerminal({ lineHeight: v as number }) },
@@ -149,30 +150,51 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             } else if (item.type === "text") {
               const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
               (sel?.querySelector('input') as HTMLElement)?.focus();
+            } else if (item.type === "shell") {
+              const opts = item.options!;
+              let currentVal = item.value as string;
+              if (!opts.includes(currentVal)) currentVal = "custom";
+              if (currentVal === "custom") {
+                const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
+                (sel?.querySelector('input') as HTMLElement)?.focus();
+              } else {
+                const idx = opts.indexOf(currentVal);
+                const nextVal = opts[(idx + 1) % opts.length];
+                if (nextVal === "custom") item.onChange?.("");
+                else item.onChange?.(nextVal);
+              }
             }
             break;
           }
           case "left": {
             const item = currentItems[currentIdx];
             if (!item) break;
-            if (item.type === "select") {
+            if (item.type === "select" || item.type === "shell") {
               const opts = item.options!;
-              const idx = opts.indexOf(item.value as string);
-              item.onChange?.(opts[(idx - 1 + opts.length) % opts.length]);
+              let currentVal = item.value as string;
+              if (item.type === "shell" && !opts.includes(currentVal)) currentVal = "custom";
+              const idx = opts.indexOf(currentVal);
+              const nextVal = opts[(idx - 1 + opts.length) % opts.length];
+              if (item.type === "shell" && nextVal === "custom") item.onChange?.("");
+              else item.onChange?.(nextVal);
             } else if (item.type === "number") {
-              item.onChange?.(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)));
+              item.onChange?.(Number(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)).toFixed(2)));
             }
             break;
           }
           case "right": {
             const item = currentItems[currentIdx];
             if (!item) break;
-            if (item.type === "select") {
+            if (item.type === "select" || item.type === "shell") {
               const opts = item.options!;
-              const idx = opts.indexOf(item.value as string);
-              item.onChange?.(opts[(idx + 1) % opts.length]);
+              let currentVal = item.value as string;
+              if (item.type === "shell" && !opts.includes(currentVal)) currentVal = "custom";
+              const idx = opts.indexOf(currentVal);
+              const nextVal = opts[(idx + 1) % opts.length];
+              if (item.type === "shell" && nextVal === "custom") item.onChange?.("");
+              else item.onChange?.(nextVal);
             } else if (item.type === "number") {
-              item.onChange?.(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)));
+              item.onChange?.(Number(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)).toFixed(2)));
             }
             break;
           }
@@ -279,14 +301,14 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
-                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1))); }}
+                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Number(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)).toFixed(2))); }}
                       >
                         <Minus size={12} />
                       </button>
                       <span className="text-xs text-fg font-mono w-8 text-center">{item.value as number}</span>
                       <button
                         className="w-6 h-6 flex items-center justify-center rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
-                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1))); }}
+                        onClick={(e) => { e.stopPropagation(); item.onChange?.(Number(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)).toFixed(2))); }}
                       >
                         <Plus size={12} />
                       </button>
@@ -310,6 +332,35 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => item.onChange?.(e.target.value)}
                     />
+                  )}
+
+                  {item.type === "shell" && (
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        className="w-28 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none"
+                        value={["powershell.exe", "cmd.exe", "bash.exe"].includes(item.value as string) ? (item.value as string) : "custom"}
+                        onChange={(e) => {
+                          if (e.target.value === "custom") {
+                            item.onChange?.("");
+                          } else {
+                            item.onChange?.(e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="powershell.exe">PowerShell</option>
+                        <option value="cmd.exe">CMD</option>
+                        <option value="bash.exe">Bash</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {!["powershell.exe", "cmd.exe", "bash.exe"].includes(item.value as string) && (
+                        <input
+                          className="w-24 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none"
+                          value={item.value as string}
+                          placeholder="path/to/shell"
+                          onChange={(e) => item.onChange?.(e.target.value)}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

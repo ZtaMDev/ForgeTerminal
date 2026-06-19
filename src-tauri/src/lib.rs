@@ -8,7 +8,6 @@ use tauri::Emitter;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, args, cwd| {}))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
@@ -34,6 +33,7 @@ pub fn run() {
             commands::workspace::workspace_save,
             commands::workspace::config_load,
             commands::workspace::config_save,
+            commands::workspace::get_process_args,
             commands::window::window_start_drag,
             commands::window::window_minimize,
             commands::window::window_toggle_maximize,

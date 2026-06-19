@@ -107,6 +107,10 @@ export async function configSave(config: string): Promise<void> {
   return invoke("config_save", { config });
 }
 
+export async function getProcessArgs(): Promise<string[]> {
+  return invoke<string[]>("get_process_args");
+}
+
 export async function windowStartDrag(): Promise<void> {
   return invoke("window_start_drag");
 }

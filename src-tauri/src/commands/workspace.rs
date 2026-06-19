@@ -78,3 +78,7 @@ pub async fn config_save(config: String) -> Result<(), String> {
 
     Ok(())
 }
+#[tauri::command]
+pub async fn get_process_args() -> Result<Vec<String>, String> {
+    Ok(std::env::args().collect())
+}

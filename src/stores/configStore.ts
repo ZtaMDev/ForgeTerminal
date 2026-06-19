@@ -24,7 +24,7 @@ const defaultConfig: ForgeConfig = {
     defaultShell: "powershell.exe",
     fontFamily: '"JetBrains Mono", "Cascadia Code", monospace',
     fontSize: 14,
-    lineHeight: 1.2,
+    lineHeight: 1,
     cursorStyle: "block",
     cursorBlink: false,
     scrollback: 100000,

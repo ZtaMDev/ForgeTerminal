@@ -45,7 +45,7 @@ export function getAllCommands(): Command[] {
         useTerminalStore.getState().addSession({
           id,
           title: "Terminal",
-          shell: "",
+          shell: useConfigStore.getState().config.terminal.defaultShell || "powershell.exe",
           cwd: "",
           cols: 80,
           rows: 24,
@@ -438,7 +438,7 @@ export function getAllCommands(): Command[] {
           useTerminalStore.getState().addSession({
             id,
             title: "Terminal",
-            shell: "",
+            shell: useConfigStore.getState().config.terminal.defaultShell || "powershell.exe",
             cwd: path,
             cols: 80,
             rows: 24,

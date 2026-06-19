@@ -292,7 +292,7 @@ export function useKeyboardShortcuts() {
             termState.addSession({
               id: newId,
               title: "Terminal",
-              shell: parentSession?.shell ?? "",
+              shell: parentSession?.shell || config.terminal.defaultShell || "powershell.exe",
               cwd: parentSession?.cwd ?? "",
               cols: parentSession?.cols ?? 80,
               rows: parentSession?.rows ?? 24,
@@ -314,7 +314,7 @@ export function useKeyboardShortcuts() {
             termState.addSession({
               id: newId,
               title: "Terminal",
-              shell: parentSession?.shell ?? "",
+              shell: parentSession?.shell || config.terminal.defaultShell || "powershell.exe",
               cwd: parentSession?.cwd ?? "",
               cols: parentSession?.cols ?? 80,
               rows: parentSession?.rows ?? 24,
@@ -349,7 +349,7 @@ export function useKeyboardShortcuts() {
             termState.addSession({
               id: newTabId,
               title: "Terminal",
-              shell: parentSession?.shell ?? "",
+              shell: parentSession?.shell || config.terminal.defaultShell || "powershell.exe",
               cwd: parentSession?.cwd ?? "",
               cols: parentSession?.cols ?? 80,
               rows: parentSession?.rows ?? 24,
