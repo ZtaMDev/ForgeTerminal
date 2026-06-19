@@ -74,6 +74,20 @@ export function WebPreviewPanel() {
     }
   };
 
+  const handleIframeLoad = () => {
+    try {
+      const iframeUrl = iframeRef.current?.contentWindow?.location.href;
+      if (iframeUrl && iframeUrl !== "about:blank") {
+        setInputUrl(iframeUrl);
+        if (iframeUrl !== url) {
+          setUrl(iframeUrl);
+        }
+      }
+    } catch {
+      // Ignore cross-origin security errors
+    }
+  };
+
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
 
@@ -142,6 +156,7 @@ export function WebPreviewPanel() {
             title="Web Preview"
             className="w-full h-full border-none"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            onLoad={handleIframeLoad}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-surface1 select-none">

@@ -436,6 +436,53 @@ export function useKeyboardShortcuts() {
         useConfigStore.getState().setTerminal({ fontSize: Math.max(6, cur - 1) });
         break;
       }
+      case "search-terminal": {
+        const focusedId = termState.focusedSessionId;
+        if (focusedId) {
+          document.dispatchEvent(new CustomEvent(`toggle-search-${focusedId}`));
+        }
+        break;
+      }
+      case "focus-viewer": {
+        tabState.setActiveView("viewer");
+        break;
+      }
+      case "move-tab-up": {
+        if (tabs.length === 0) break;
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        if (idx > 0) {
+          tabState.reorderTabs(idx, idx - 1);
+        }
+        break;
+      }
+      case "move-tab-down": {
+        if (tabs.length === 0) break;
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        if (idx < tabs.length - 1) {
+          tabState.reorderTabs(idx, idx + 1);
+        }
+        break;
+      }
+      case "release-focus": {
+        (document.activeElement as HTMLElement)?.blur();
+        break;
+      }
+      case "fullscreen": {
+        try {
+          import("@tauri-apps/api/window").then(async (m) => {
+            const win = m.getCurrentWindow();
+            const isFull = await win.isFullscreen();
+            await win.setFullscreen(!isFull);
+          });
+        } catch {
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+        break;
+      }
       default:
         break;
     }

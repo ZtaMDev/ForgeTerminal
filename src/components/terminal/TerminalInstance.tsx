@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { debounce } from "@/lib/utils";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -141,6 +141,9 @@ export function TerminalInstance({
   cwd,
   tabId: _tabId,
 }: TerminalInstanceProps) {
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchText, setSearchText] = useState("");
+
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -380,6 +383,12 @@ export function TerminalInstance({
     };
     document.addEventListener("focus-restore", handleFocusRestore);
 
+    // Listen for toggle search request
+    const handleToggleSearch = () => {
+      setShowSearch((prev) => !prev);
+    };
+    document.addEventListener(`toggle-search-${sessionId}`, handleToggleSearch);
+
     // ResizeObserver to keep fit (debounced to avoid excessive IPC)
     const onResize = debounce(() => {
       try {
@@ -411,6 +420,7 @@ export function TerminalInstance({
       document.removeEventListener("focus-terminal", handleFocusRequest);
       document.removeEventListener("blur-terminal", handleBlurRequest);
       document.removeEventListener("focus-restore", handleFocusRestore);
+      document.removeEventListener(`toggle-search-${sessionId}`, handleToggleSearch);
       xterm.dispose();
       isSpawnedRef.current = false;
     };
@@ -436,7 +446,7 @@ export function TerminalInstance({
   ]);
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative group">
       <div
         ref={terminalRef}
         className="w-full h-full"
@@ -445,6 +455,57 @@ export function TerminalInstance({
           opacity: config.theme.opacity,
         }}
       />
+      {showSearch && (
+        <div className="absolute top-2 right-4 bg-surface0 border border-surface1 rounded shadow-lg px-2 py-1.5 flex items-center gap-1.5 z-10 text-xs anim-fade-in">
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchText}
+            onChange={(e) => {
+              setSearchText(e.target.value);
+              searchAddonRef.current?.findNext(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (e.shiftKey) {
+                  searchAddonRef.current?.findPrevious(searchText);
+                } else {
+                  searchAddonRef.current?.findNext(searchText);
+                }
+              } else if (e.key === "Escape") {
+                setShowSearch(false);
+                xtermRef.current?.focus();
+              }
+            }}
+            autoFocus
+            className="bg-bg border border-surface1 rounded px-1.5 py-0.5 outline-none focus:border-accent text-fg w-40"
+          />
+          <button
+            onClick={() => searchAddonRef.current?.findPrevious(searchText)}
+            className="hover:bg-surface1 p-1 rounded text-fg-subtle hover:text-fg font-bold"
+            title="Previous (Shift+Enter)"
+          >
+            ↑
+          </button>
+          <button
+            onClick={() => searchAddonRef.current?.findNext(searchText)}
+            className="hover:bg-surface1 p-1 rounded text-fg-subtle hover:text-fg font-bold"
+            title="Next (Enter)"
+          >
+            ↓
+          </button>
+          <button
+            onClick={() => {
+              setShowSearch(false);
+              xtermRef.current?.focus();
+            }}
+            className="hover:bg-red-500/20 px-1.5 py-0.5 rounded text-fg-subtle hover:text-red-400 font-bold"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   );
 }
