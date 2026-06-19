@@ -88,8 +88,32 @@ export function getAllCommands(): Command[] {
       category: "Terminal",
       action: () => {
         if (activeTabId) {
-          const newId = useTabStore.getState().splitHorizontal(activeTabId);
+          const tabState = useTabStore.getState();
+          const termState = useTerminalStore.getState();
+          const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
+          const focusedId = termState.focusedSessionId;
+          let parentSessionId = activeTab?.sessionId;
+          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
+            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+              parentSessionId = focusedId;
+            } else {
+              parentSessionId = activeTab.splitLayout.splits[0];
+            }
+          }
+          const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
+
+          const newId = tabState.splitHorizontal(activeTabId);
           if (newId) {
+            termState.addSession({
+              id: newId,
+              title: "Terminal",
+              shell: parentSession?.shell || useConfigStore.getState().config.terminal.defaultShell || "powershell.exe",
+              cwd: parentSession?.cwd ?? "",
+              cols: parentSession?.cols ?? 80,
+              rows: parentSession?.rows ?? 24,
+              processId: null,
+              createdAt: Date.now(),
+            });
             setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } })), 100);
           }
         }
@@ -102,8 +126,32 @@ export function getAllCommands(): Command[] {
       category: "Terminal",
       action: () => {
         if (activeTabId) {
-          const newId = useTabStore.getState().splitVertical(activeTabId);
+          const tabState = useTabStore.getState();
+          const termState = useTerminalStore.getState();
+          const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
+          const focusedId = termState.focusedSessionId;
+          let parentSessionId = activeTab?.sessionId;
+          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
+            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+              parentSessionId = focusedId;
+            } else {
+              parentSessionId = activeTab.splitLayout.splits[0];
+            }
+          }
+          const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
+
+          const newId = tabState.splitVertical(activeTabId);
           if (newId) {
+            termState.addSession({
+              id: newId,
+              title: "Terminal",
+              shell: parentSession?.shell || useConfigStore.getState().config.terminal.defaultShell || "powershell.exe",
+              cwd: parentSession?.cwd ?? "",
+              cols: parentSession?.cols ?? 80,
+              rows: parentSession?.rows ?? 24,
+              processId: null,
+              createdAt: Date.now(),
+            });
             setTimeout(() => document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newId } })), 100);
           }
         }
@@ -346,6 +394,15 @@ export function getAllCommands(): Command[] {
       category: "View",
       action: () => {
         document.dispatchEvent(new CustomEvent("toggle-settings-panel"));
+      },
+    },
+    {
+      id: "view.toggle-preview",
+      name: "Toggle Web Preview",
+      shortcut: "Ctrl+Shift+Y",
+      category: "View",
+      action: () => {
+        import("@/stores/previewStore").then((m) => m.usePreviewStore.getState().togglePreview());
       },
     },
     {

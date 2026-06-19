@@ -18,7 +18,12 @@ export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalCont
   const isFocusedInSplit = isSplit && focusedId && tab.splitLayout!.splits.includes(focusedId);
 
   const getParentSessionId = () => {
-    if (isSplit && focusedId) return focusedId;
+    if (isSplit) {
+      if (focusedId && tab.splitLayout?.splits.includes(focusedId)) {
+        return focusedId;
+      }
+      return tab.splitLayout?.splits[0] ?? tab.id;
+    }
     return tab.sessionId ?? tab.id;
   };
 

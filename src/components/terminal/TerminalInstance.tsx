@@ -3,9 +3,92 @@ import { debounce } from "@/lib/utils";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
+import { usePreviewStore } from "@/stores/previewStore";
 import { getTheme } from "@/lib/themes";
+import { open } from "@tauri-apps/plugin-shell";
+
+// Tooltip state
+let activeTooltip: HTMLElement | null = null;
+let tooltipTimeout: NodeJS.Timeout | null = null;
+
+const createTooltip = (event: MouseEvent, uri: string) => {
+  if (activeTooltip) {
+    activeTooltip.remove();
+  }
+  if (tooltipTimeout) clearTimeout(tooltipTimeout);
+
+  const tooltip = document.createElement("div");
+  tooltip.className = "fixed z-50 bg-surface0 border border-surface1 rounded shadow-lg p-2 flex flex-col gap-2 text-xs text-fg animate-in fade-in zoom-in-95 duration-100";
+  
+  // Position near cursor, ensuring it doesn't overflow right
+  const left = Math.min(event.clientX, window.innerWidth - 220);
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${event.clientY + 15}px`;
+
+  // Helper text
+  const hint = document.createElement("div");
+  hint.className = "text-[10px] text-fg-subtle mb-[-4px]";
+  hint.innerText = "Ctrl+Click to follow link";
+  tooltip.appendChild(hint);
+
+  // Content URL
+  const text = document.createElement("span");
+  text.className = "font-mono truncate max-w-[300px] block opacity-90 text-accent";
+  text.innerText = uri;
+  tooltip.appendChild(text);
+
+  // Buttons container
+  const btnContainer = document.createElement("div");
+  btnContainer.className = "flex items-center gap-1.5 mt-1";
+
+  const btnPreview = document.createElement("button");
+  btnPreview.className = "px-2 py-1 bg-surface1 hover:bg-surface2 rounded text-fg transition-colors flex-1";
+  btnPreview.innerText = "Preview Panel";
+  btnPreview.onclick = () => {
+    usePreviewStore.getState().openPreview(uri);
+    tooltip.remove();
+    activeTooltip = null;
+  };
+  btnContainer.appendChild(btnPreview);
+
+  const btnBrowser = document.createElement("button");
+  btnBrowser.className = "px-2 py-1 bg-surface1 hover:bg-surface2 rounded text-fg transition-colors flex-1";
+  btnBrowser.innerText = "System Browser";
+  btnBrowser.onclick = () => {
+    open(uri).catch(console.error);
+    tooltip.remove();
+    activeTooltip = null;
+  };
+  btnContainer.appendChild(btnBrowser);
+
+  tooltip.appendChild(btnContainer);
+
+  // Prevent closing when mouse enters tooltip
+  tooltip.onmouseenter = () => {
+    if (tooltipTimeout) clearTimeout(tooltipTimeout);
+  };
+  tooltip.onmouseleave = () => {
+    tooltip.remove();
+    activeTooltip = null;
+  };
+
+  document.body.appendChild(tooltip);
+  activeTooltip = tooltip;
+};
+
+const closeTooltip = () => {
+  if (tooltipTimeout) clearTimeout(tooltipTimeout);
+  tooltipTimeout = setTimeout(() => {
+    if (activeTooltip) {
+      activeTooltip.remove();
+      activeTooltip = null;
+    }
+  }, 200);
+};
+
 import {
   ptySpawn,
   ptyWrite,
@@ -91,17 +174,18 @@ export function TerminalInstance({
         const detectedShell =
           shell || config.terminal.defaultShell || await getDefaultShell() || "powershell.exe";
         const shellPath = typeof detectedShell === "string" ? detectedShell : "powershell.exe";
+        const targetCwd = cwd || existingSession?.cwd || "";
         const result = await ptySpawn(
           sessionId,
           shellPath,
-          cwd || "",
+          targetCwd,
           cols,
           rows,
         );
         updateSession(sessionId, {
           processId: result.process_id,
           shell: shellPath,
-          cwd: cwd || result.cwd || "",
+          cwd: targetCwd || result.cwd || "",
         });
       } catch (e) {
         console.error("Failed to spawn PTY:", e);
@@ -132,8 +216,30 @@ export function TerminalInstance({
 
     const fitAddon = new FitAddon();
     const searchAddon = new SearchAddon();
+    const webLinksAddon = new WebLinksAddon(
+      (event: MouseEvent, uri: string) => {
+        // Only open on Ctrl+Click or Cmd+Click
+        if (event.ctrlKey || event.metaKey) {
+          const behavior = useConfigStore.getState().config.terminal.linkBehavior;
+          if (behavior === "preview") {
+            usePreviewStore.getState().openPreview(uri);
+          } else {
+            open(uri).catch(console.error);
+          }
+        }
+      },
+      {
+        hover: (event: MouseEvent, uri: string) => {
+          createTooltip(event, uri);
+        },
+        leave: () => {
+          closeTooltip();
+        }
+      }
+    );
     xterm.loadAddon(fitAddon);
     xterm.loadAddon(searchAddon);
+    xterm.loadAddon(webLinksAddon);
 
     xterm.open(terminalRef.current);
 
@@ -194,6 +300,16 @@ export function TerminalInstance({
       if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
         return false;
       }
+      
+      // Copy on Ctrl+C if text is selected
+      if (e.type === "keydown" && e.code === "KeyC" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+        if (xterm.hasSelection()) {
+          navigator.clipboard.writeText(xterm.getSelection()).catch(console.error);
+          xterm.clearSelection();
+          return false; // Prevent sending SIGINT to terminal
+        }
+      }
+      
       // All other keys go to xterm; forge shortcuts are intercepted upstream in capture phase
       return true;
     });
@@ -229,6 +345,16 @@ export function TerminalInstance({
     termElem?.setAttribute("tabindex", "0");
     termElem?.addEventListener("focus", handleFocus, true);
     termElem?.addEventListener("blur", handleBlur, true);
+
+    const handleMouseUp = () => {
+      if (useConfigStore.getState().config.terminal.copyOnSelect && xterm.hasSelection()) {
+        const sel = xterm.getSelection();
+        if (sel) {
+          navigator.clipboard.writeText(sel).catch(console.error);
+        }
+      }
+    };
+    termElem?.addEventListener("mouseup", handleMouseUp);
 
     // Listen for external focus requests (e.g. from Ctrl+` shortcut)
     const handleFocusRequest = (e: Event) => {
@@ -279,9 +405,9 @@ export function TerminalInstance({
     return () => {
       observer.disconnect();
       unlistenRef.current.forEach((fn) => fn());
-      // Don't kill PTY on unmount — keep it alive for tab switching
       termElem?.removeEventListener("focus", handleFocus, true);
       termElem?.removeEventListener("blur", handleBlur, true);
+      termElem?.removeEventListener("mouseup", handleMouseUp);
       document.removeEventListener("focus-terminal", handleFocusRequest);
       document.removeEventListener("blur-terminal", handleBlurRequest);
       document.removeEventListener("focus-restore", handleFocusRestore);

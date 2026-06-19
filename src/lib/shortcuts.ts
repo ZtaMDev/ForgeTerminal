@@ -32,6 +32,7 @@ export const defaultShortcuts: ShortcutsConfig = {
     "release-focus": ["Ctrl+Shift+Space"],
     "new-terminal-at": ["Ctrl+Alt+`"],
     "open-settings": ["Ctrl+,"],
+    "toggle-preview": ["Ctrl+Shift+Y"],
     "font-increase": ["Ctrl+="],
     "font-decrease": ["Ctrl+-"],
     "fullscreen": ["F11"],

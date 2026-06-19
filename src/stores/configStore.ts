@@ -31,6 +31,7 @@ const defaultConfig: ForgeConfig = {
     bellStyle: "none",
     copyOnSelect: true,
     rightClickPaste: true,
+    linkBehavior: "preview",
     environment: {},
     args: [],
   },

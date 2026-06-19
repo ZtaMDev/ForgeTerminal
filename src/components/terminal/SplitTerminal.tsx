@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { TerminalInstance } from "./TerminalInstance";
 import type { SplitLayout } from "@/types/terminal";
+import { useTerminalStore } from "@/stores/terminalStore";
 
 interface SplitTerminalProps {
   layout: SplitLayout;
@@ -11,6 +12,7 @@ export function SplitTerminal({ layout, tabId }: SplitTerminalProps) {
   const n = layout.splits.length;
   const [sizes, setSizes] = useState<number[]>(() => Array(n).fill(100 / n));
   const containerRef = useRef<HTMLDivElement>(null);
+  const sessions = useTerminalStore((s) => s.sessions);
 
   useEffect(() => {
     setSizes(Array(layout.splits.length).fill(100 / layout.splits.length));
@@ -50,14 +52,16 @@ export function SplitTerminal({ layout, tabId }: SplitTerminalProps) {
 
   const items: React.ReactNode[] = [];
   for (let i = 0; i < layout.splits.length; i++) {
+    const sId = layout.splits[i];
+    const session = sessions.get(sId);
     items.push(
       <div
-        key={layout.splits[i]}
+        key={sId}
         className="flex flex-col min-h-0 min-w-0 anim-transition anim-slide"
         style={{ flexBasis: `${sizes[i]}%`, flexGrow: 0, flexShrink: 0, overflow: "hidden" }}
       >
         <div className="flex-1 min-h-0 min-w-0">
-          <TerminalInstance sessionId={layout.splits[i]} />
+          <TerminalInstance sessionId={sId} cwd={session?.cwd} />
         </div>
       </div>,
     );

@@ -39,6 +39,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
   const createItems = useCallback((): SettingItem[] => [
     { section: "Terminal", id: "defaultShell", label: "Default Shell", type: "shell" as const, value: config.terminal.defaultShell, options: ["powershell.exe", "cmd.exe", "bash.exe", "custom"], onChange: (v: unknown) => setTerminal({ defaultShell: v as string }) },
+    { section: "Terminal", id: "linkBehavior", label: "Ctrl+Click Link Behavior", type: "select" as const, value: config.terminal.linkBehavior, options: ["preview", "browser"], onChange: (v: unknown) => setTerminal({ linkBehavior: v as "preview" | "browser" }) },
     { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
     { section: "Terminal", id: "fontSize", label: "Font Size", type: "number" as const, value: config.terminal.fontSize, min: 6, max: 72, step: 1, onChange: (v: unknown) => setTerminal({ fontSize: v as number }) },
     { section: "Terminal", id: "lineHeight", label: "Line Height", type: "number" as const, value: config.terminal.lineHeight, min: 0.5, max: 3, step: 0.1, onChange: (v: unknown) => setTerminal({ lineHeight: v as number }) },

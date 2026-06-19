@@ -121,10 +121,19 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
             action: () => {
               const tabStore = useTabStore.getState();
               const termStore = useTerminalStore.getState();
+              
+              let parentSessionId = tab.sessionId;
+              if (tab.type === "split" && tab.splitLayout?.splits) {
+                if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
+                  parentSessionId = focusedId;
+                } else {
+                  parentSessionId = tab.splitLayout.splits[0];
+                }
+              }
+              const parentSession = parentSessionId ? termStore.sessions.get(parentSessionId) : undefined;
+
               const newId = tabStore.splitHorizontal(tab.id);
               if (newId) {
-                const parentId = tab.sessionId ?? tab.id;
-                const parentSession = termStore.sessions.get(parentId);
                 termStore.addSession({
                   id: newId,
                   title: "Terminal",
@@ -146,10 +155,19 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
             action: () => {
               const tabStore = useTabStore.getState();
               const termStore = useTerminalStore.getState();
+              
+              let parentSessionId = tab.sessionId;
+              if (tab.type === "split" && tab.splitLayout?.splits) {
+                if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
+                  parentSessionId = focusedId;
+                } else {
+                  parentSessionId = tab.splitLayout.splits[0];
+                }
+              }
+              const parentSession = parentSessionId ? termStore.sessions.get(parentSessionId) : undefined;
+
               const newId = tabStore.splitVertical(tab.id);
               if (newId) {
-                const parentId = tab.sessionId ?? tab.id;
-                const parentSession = termStore.sessions.get(parentId);
                 termStore.addSession({
                   id: newId,
                   title: "Terminal",

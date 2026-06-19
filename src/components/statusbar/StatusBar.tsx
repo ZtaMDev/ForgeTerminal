@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useTabStore } from "@/stores/tabStore";
 import { useConfigStore } from "@/stores/configStore";
+import { usePreviewStore } from "@/stores/previewStore";
 import { isPrefixActive } from "@/lib/prefixMode";
 import { TerminalStatus } from "./TerminalStatus";
-import { Image, FileType, Settings, FolderClock } from "lucide-react";
+import { Image, FileType, Settings, FolderClock, Globe } from "lucide-react";
 import { isImageFile } from "@/components/viewer/ImageViewer";
 
 export function StatusBar() {
@@ -68,6 +69,15 @@ export function StatusBar() {
             <span className="text-surface1">|</span>
           </>
         )}
+        <button
+          className="flex items-center gap-1 hover:text-fg transition-colors"
+          title="Toggle Web Preview"
+          onClick={() => usePreviewStore.getState().togglePreview()}
+        >
+          <Globe size={12} />
+          Preview
+        </button>
+        <span className="text-surface1">|</span>
         <span className="hover:text-fg cursor-default" title="Toggle Passthrough">
           Ctrl+` {prefixActive ? "THRU" : "CMD"}
         </span>

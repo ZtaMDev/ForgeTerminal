@@ -19,6 +19,7 @@ export interface TerminalConfig {
   bellStyle: "none" | "sound" | "visual";
   copyOnSelect: boolean;
   rightClickPaste: boolean;
+  linkBehavior: "preview" | "browser";
   environment: Record<string, string>;
   args: string[];
 }

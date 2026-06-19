@@ -286,9 +286,20 @@ export function useKeyboardShortcuts() {
       }
       case "split-horizontal": {
         if (activeTabId) {
+          const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
+          const focusedId = termState.focusedSessionId;
+          let parentSessionId = activeTab?.sessionId;
+          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
+            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+              parentSessionId = focusedId;
+            } else {
+              parentSessionId = activeTab.splitLayout.splits[0];
+            }
+          }
+          const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
+
           const newId = tabState.splitHorizontal(activeTabId);
           if (newId) {
-            const parentSession = termState.sessions.get(activeTabId);
             termState.addSession({
               id: newId,
               title: "Terminal",
@@ -308,9 +319,20 @@ export function useKeyboardShortcuts() {
       }
       case "split-vertical": {
         if (activeTabId) {
+          const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
+          const focusedId = termState.focusedSessionId;
+          let parentSessionId = activeTab?.sessionId;
+          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
+            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+              parentSessionId = focusedId;
+            } else {
+              parentSessionId = activeTab.splitLayout.splits[0];
+            }
+          }
+          const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
+
           const newId = tabState.splitVertical(activeTabId);
           if (newId) {
-            const parentSession = termState.sessions.get(activeTabId);
             termState.addSession({
               id: newId,
               title: "Terminal",
@@ -338,6 +360,10 @@ export function useKeyboardShortcuts() {
       }
       case "open-settings": {
         document.dispatchEvent(new CustomEvent("toggle-settings-panel"));
+        break;
+      }
+      case "toggle-preview": {
+        import("@/stores/previewStore").then((m) => m.usePreviewStore.getState().togglePreview());
         break;
       }
       case "duplicate-tab": {
