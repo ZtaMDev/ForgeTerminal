@@ -55,6 +55,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
     { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },
     { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },
+    { section: "Layout", id: "previewPosition", label: "Preview Panel Position", type: "select" as const, value: config.layout.previewPosition || "right", options: ["left", "right"], onChange: (v: unknown) => setLayout({ previewPosition: v as "left" | "right" }) },
     { section: "Developer", id: "devMode", label: "Developer Mode", type: "toggle" as const, value: config.developer.enabled, onChange: (v: unknown) => setDeveloper({ enabled: v as boolean }) },
     ...(config.developer.enabled ? [
       { section: "Developer", id: "clearTutorial", label: "Reset Tutorial (show again)", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("clear-tutorial")); } },

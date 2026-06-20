@@ -111,6 +111,7 @@ const keyToCode: Record<string, string[]> = {
   F10: ["F10"],
   F11: ["F11"],
   F12: ["F12"],
+  Y: ["KeyY"],
 };
 
 export function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {

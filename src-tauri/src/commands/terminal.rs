@@ -52,6 +52,12 @@ pub fn pty_spawn(
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
     let mut cmd = CommandBuilder::new(&shell);
+    let shell_lower = shell.to_lowercase();
+    if shell_lower.contains("powershell") || shell_lower.contains("pwsh") {
+        cmd.arg("-NoLogo");
+    } else if shell_lower.contains("cmd.exe") || shell_lower.ends_with("cmd") {
+        cmd.args(["/k", "cls"]);
+    }
     let actual_cwd = if cwd.is_empty() {
         // Default to user's home directory
         let home = std::env::var("USERPROFILE")

@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { usePreviewStore } from "@/stores/previewStore";
-import { Globe, ArrowLeft, ArrowRight, RefreshCw, X } from "lucide-react";
+import { useConfigStore } from "@/stores/configStore";
+import { Globe, ArrowLeft, ArrowRight, RefreshCw, X, Home } from "lucide-react";
 
 export function WebPreviewPanel() {
+  const config = useConfigStore((s) => s.config);
+  const isLeft = config.layout.previewPosition === "left";
   const { isOpen, url, history, historyIndex, closePreview, goBack, goForward, setUrl } = usePreviewStore();
   const [inputUrl, setInputUrl] = useState("");
   const [width, setWidth] = useState(() => {
@@ -21,9 +24,10 @@ export function WebPreviewPanel() {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging.current) return;
-      // We want to calculate the new width. Since the panel is on the left,
-      // the width is essentially e.clientX (with constraints)
-      const newWidth = Math.max(300, Math.min(e.clientX, window.innerWidth - 300));
+      const isLeftPos = useConfigStore.getState().config.layout.previewPosition === "left";
+      const newWidth = isLeftPos
+        ? Math.max(300, Math.min(e.clientX, window.innerWidth - 300))
+        : Math.max(300, Math.min(window.innerWidth - e.clientX, window.innerWidth - 300));
       setWidth(newWidth);
     };
 
@@ -93,12 +97,12 @@ export function WebPreviewPanel() {
 
   return (
     <div 
-      className="flex flex-col border-r border-surface0 bg-bg shadow-xl z-20 transition-[width] duration-0 relative"
+      className={`flex flex-col ${isLeft ? 'border-r' : 'border-l'} border-surface0 bg-bg shadow-xl z-20 transition-[width] duration-0 relative`}
       style={{ width: `${width}px` }}
     >
       {/* Resizer Handle */}
       <div
-        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-accent/50 z-30"
+        className={`absolute top-0 ${isLeft ? 'right-0' : 'left-0'} w-1 h-full cursor-col-resize hover:bg-accent/50 z-30`}
         onMouseDown={handleMouseDown}
       />
 
@@ -127,6 +131,13 @@ export function WebPreviewPanel() {
         >
           <RefreshCw size={14} />
         </button>
+        <button
+          onClick={() => setUrl("")}
+          className="p-1.5 rounded hover:bg-surface1 text-fg-subtle hover:text-fg transition-colors"
+          title="Home"
+        >
+          <Home size={14} />
+        </button>
         
         <form onSubmit={handleNavigate} className="flex-1 mx-1">
           <input
@@ -148,7 +159,7 @@ export function WebPreviewPanel() {
       </div>
 
       {/* WebView (iframe) */}
-      <div className="flex-1 bg-white relative">
+      <div className={`flex-1 relative ${url ? 'bg-white' : 'bg-bg'}`}>
         {url ? (
           <iframe
             ref={iframeRef}

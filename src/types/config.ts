@@ -28,6 +28,7 @@ export interface LayoutConfig {
   tabPosition: "top" | "bottom";
   showStatusBar: boolean;
   panelDirection: "horizontal" | "vertical";
+  previewPosition?: "left" | "right";
 }
 
 export interface ShortcutEntry {

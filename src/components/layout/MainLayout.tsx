@@ -183,10 +183,11 @@ export function MainLayout() {
         <TabBar />
 
         <div className="flex flex-1 min-h-0">
-          <WebPreviewPanel />
+          {config.layout.previewPosition === "left" && <WebPreviewPanel />}
           <main className="flex-1 flex flex-col min-w-0">
             {renderPanel()}
           </main>
+          {config.layout.previewPosition !== "left" && <WebPreviewPanel />}
         </div>
       </div>
 

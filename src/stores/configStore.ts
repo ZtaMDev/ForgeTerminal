@@ -39,6 +39,7 @@ const defaultConfig: ForgeConfig = {
     tabPosition: "top",
     showStatusBar: true,
     panelDirection: "horizontal",
+    previewPosition: "right",
   },
   shortcuts: defaultShortcuts,
   session: {
