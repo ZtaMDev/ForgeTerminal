@@ -71,6 +71,9 @@ export function TerminalDragOverlay() {
           if (tab && tab.splitNode) {
             if (currentDrag.zone === "center") {
               swapSessions(tab.id, currentDrag.draggingId, currentDrag.targetId);
+              setTimeout(() => {
+                document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: currentDrag.draggingId } }));
+              }, 50);
             } else if (currentDrag.zone) {
                // Complex restructuring: remove draggingId, then split targetId
                import("@/lib/splitUtils").then(({ removeNode, splitNodeAt }) => {
@@ -96,6 +99,11 @@ export function TerminalDragOverlay() {
                  if (currentDrag.zone === "left" || currentDrag.zone === "top") {
                    setTimeout(() => {
                      useTabStore.getState().swapSessions(tab.id, currentDrag.draggingId, currentDrag.targetId!);
+                     document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: currentDrag.draggingId } }));
+                   }, 10);
+                 } else {
+                   setTimeout(() => {
+                     document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: currentDrag.draggingId } }));
                    }, 10);
                  }
                });

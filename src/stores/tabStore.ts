@@ -90,14 +90,19 @@ export const useTabStore = create<TabState>((set, get) => ({
       const state = get();
       const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
       if (activeTab && (activeTab.type === "terminal" || activeTab.type === "split")) {
-        const focusedId = useTerminalStore.getState().focusedSessionId;
-        document.dispatchEvent(
-          new CustomEvent("focus-terminal", {
-            detail: focusedId ? { sessionId: focusedId } : undefined,
-          }),
-        );
+        const targetSession = activeTab.lastFocusedSessionId || (activeTab.type === "terminal" ? activeTab.sessionId : undefined);
+        if (targetSession) {
+          document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: targetSession } }));
+        } else if (activeTab.splitNode) {
+          import("@/lib/splitUtils").then(({ getSessions }) => {
+            const sessions = getSessions(activeTab.splitNode!);
+            if (sessions.length > 0) {
+              document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: sessions[0] } }));
+            }
+          });
+        }
       }
-    }, 0);
+    }, 50);
 
     return result;
   },
@@ -106,6 +111,21 @@ export const useTabStore = create<TabState>((set, get) => ({
     set((state) => {
       const tab = state.tabs.find((t) => t.id === id);
       if (!tab) return state;
+
+      setTimeout(() => {
+        const targetSession = tab.lastFocusedSessionId || (tab.type === "terminal" ? tab.sessionId : undefined);
+        if (targetSession) {
+          document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: targetSession } }));
+        } else if (tab.splitNode) {
+          import("@/lib/splitUtils").then(({ getSessions }) => {
+            const sessions = getSessions(tab.splitNode!);
+            if (sessions.length > 0) {
+              document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: sessions[0] } }));
+            }
+          });
+        }
+      }, 50);
+
       return {
         activeTabId: id,
         activeView:

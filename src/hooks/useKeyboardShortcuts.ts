@@ -125,7 +125,9 @@ export function useKeyboardShortcuts() {
                     e.stopPropagation();
                     tabState.swapSessions(activeTab.id, focusedId!, splits[targetIdx]);
                     // Focus the terminal we just moved to keep control
-                    document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: focusedId } }));
+                    setTimeout(() => {
+                      document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: focusedId } }));
+                    }, 50);
                     return;
                   }
                 }

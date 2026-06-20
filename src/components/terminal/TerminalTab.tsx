@@ -20,6 +20,10 @@ export function TerminalTab({ tabId, sessionId, splitNode }: TerminalTabProps) {
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    if (e.ctrlKey && e.altKey) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
     setCtx({ x: e.clientX, y: e.clientY });
   }, []);

@@ -24,6 +24,7 @@ export interface Tab {
   sessionId?: string;
   filePath?: string;
   splitNode?: SplitNode;
+  lastFocusedSessionId?: string;
   pinned: boolean;
   createdAt: number;
 }

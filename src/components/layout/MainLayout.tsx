@@ -134,12 +134,14 @@ export function MainLayout() {
   const commands = getAllCommands();
 
   function restoreFocus() {
-    const focusedId = useTerminalStore.getState().focusedSessionId;
-    if (focusedId) {
-      document.dispatchEvent(
-        new CustomEvent("focus-terminal", { detail: { sessionId: focusedId } }),
-      );
-    }
+    setTimeout(() => {
+      const targetSession = useTerminalStore.getState().lastFocusedSessionId;
+      if (targetSession) {
+        document.dispatchEvent(
+          new CustomEvent("focus-terminal", { detail: { sessionId: targetSession } }),
+        );
+      }
+    }, 50);
   }
 
   const renderPanel = () => {

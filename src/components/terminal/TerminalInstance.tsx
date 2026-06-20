@@ -99,6 +99,7 @@ import {
   onPTYError,
 } from "@/lib/ipc";
 import "@xterm/xterm/css/xterm.css";
+import { useTabStore } from "@/stores/tabStore";
 
 interface TerminalInstanceProps {
   sessionId: string;
@@ -139,7 +140,7 @@ export function TerminalInstance({
   sessionId,
   shell,
   cwd,
-  tabId: _tabId,
+  tabId,
 }: TerminalInstanceProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -333,6 +334,9 @@ export function TerminalInstance({
     const handleFocus = () => {
       useTerminalStore.getState().setFocusedSession(sessionId);
       useTerminalStore.getState().setLastFocusedSession(sessionId);
+      if (tabId) {
+        useTabStore.getState().updateTab(tabId, { lastFocusedSessionId: sessionId });
+      }
       document.dispatchEvent(
         new CustomEvent("terminal-focus", { detail: { sessionId } }),
       );
