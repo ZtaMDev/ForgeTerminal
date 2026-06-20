@@ -2,8 +2,10 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 import { ForgeLogo } from "@/components/common/ForgeLogo";
+import { formatShortcut } from "@/lib/shortcuts";
 
 export function WelcomeTab() {
+  const commandKey = useConfigStore((s) => s.config.shortcuts.commandKey);
   const addTab = useTabStore((s) => s.addTab);
   const addSession = useTerminalStore((s) => s.addSession);
 
@@ -49,8 +51,8 @@ export function WelcomeTab() {
         </div>
 
         <div className="text-xs text-fg-subtle space-y-1.5">
-          <p><span className="text-accent font-mono">Ctrl+`</span> Passthrough Toggle</p>
-          <p><span className="text-accent font-mono">Ctrl+Shift+`</span> New Terminal</p>
+          <p><span className="text-accent font-mono">{formatShortcut("Ctrl+<cmd>", commandKey)}</span> Passthrough Toggle</p>
+          <p><span className="text-accent font-mono">{formatShortcut("Ctrl+Shift+<cmd>", commandKey)}</span> New Terminal</p>
           <p><span className="text-accent font-mono">Ctrl+,</span> Settings</p>
           <p><span className="text-accent font-mono">Ctrl+Shift+P</span> Command Palette</p>
         </div>

@@ -454,7 +454,7 @@ export function TerminalInstance({
     if (e.button === 2 && e.ctrlKey && e.altKey) {
       e.preventDefault();
       e.stopPropagation();
-      document.dispatchEvent(new CustomEvent("terminal-drag-start", { detail: { sessionId } }));
+      document.dispatchEvent(new CustomEvent("terminal-drag-start", { detail: { sessionId, x: e.clientX, y: e.clientY } }));
     }
   };
 

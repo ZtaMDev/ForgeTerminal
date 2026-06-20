@@ -13,7 +13,7 @@ export function getAllCommands(): Command[] {
     {
       id: "terminal.new-at",
       name: "New Terminal at Path...",
-      shortcut: "Ctrl+Alt+`",
+      shortcut: "Ctrl+Alt+<cmd>",
       category: "Terminal",
       action: () => {
         document.dispatchEvent(new CustomEvent("open-path-input"));
@@ -31,7 +31,7 @@ export function getAllCommands(): Command[] {
     {
       id: "terminal.new",
       name: "New Terminal",
-      shortcut: "Ctrl+Shift+`",
+      shortcut: "Ctrl+Shift+<cmd>",
       category: "Terminal",
       action: () => {
         const id = crypto.randomUUID();

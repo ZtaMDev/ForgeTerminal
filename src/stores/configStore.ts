@@ -41,7 +41,10 @@ const defaultConfig: ForgeConfig = {
     panelDirection: "horizontal",
     previewPosition: "right",
   },
-  shortcuts: defaultShortcuts,
+  shortcuts: {
+    ...defaultShortcuts,
+    commandKey: "`",
+  },
   session: {
     sessionRestore: true,
     pastPaths: [],
@@ -144,6 +147,19 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   loadConfig: async () => {
     const mergeConfig = (parsed: Partial<ForgeConfig>): ForgeConfig => {
+      // Migrate old shortcuts to use <cmd>
+      if (parsed.shortcuts?.global) {
+        for (const [key, val] of Object.entries(parsed.shortcuts.global)) {
+          if (Array.isArray(val)) {
+            parsed.shortcuts.global[key] = val.map(v => 
+              v.replace("Ctrl+`", "Ctrl+<cmd>")
+               .replace("Ctrl+Shift+`", "Ctrl+Shift+<cmd>")
+               .replace("Ctrl+Alt+`", "Ctrl+Alt+<cmd>")
+            );
+          }
+        }
+      }
+
       return {
         ...defaultConfig,
         ...parsed,
@@ -158,6 +174,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         terminal: { ...defaultConfig.terminal, ...(parsed.terminal || {}) },
         layout: { ...defaultConfig.layout, ...(parsed.layout || {}) },
         shortcuts: {
+          commandKey: parsed.shortcuts?.commandKey || defaultConfig.shortcuts.commandKey,
           global: { ...defaultConfig.shortcuts.global, ...(parsed.shortcuts?.global || {}) },
           terminal: { ...defaultConfig.shortcuts.terminal, ...(parsed.shortcuts?.terminal || {}) },
         },

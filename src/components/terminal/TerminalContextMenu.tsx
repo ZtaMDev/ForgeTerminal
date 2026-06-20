@@ -2,7 +2,7 @@ import { ContextMenu, type ContextMenuItem } from "@/components/common/ContextMe
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import type { Tab } from "@/types/terminal";
-import { Columns2, Columns2Icon, X, Copy, SplitSquareHorizontal, SquareTerminal } from "lucide-react";
+import { Columns2, Columns2Icon, X, Copy, SplitSquareHorizontal, SquareTerminal, Move } from "lucide-react";
 import { getSessions } from "@/lib/splitUtils";
 
 interface TerminalContextMenuProps {
@@ -63,6 +63,20 @@ export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalCont
       icon: <Columns2Icon size={14} />,
       shortcut: "Ctrl+Shift+\\",
       action: () => createSplitSession((id) => useTabStore.getState().splitVertical(id, focusedId || undefined)),
+    },
+    {
+      id: "move-terminal",
+      label: "Move Terminal",
+      icon: <Move size={14} />,
+      shortcut: "Drag Mode",
+      action: () => {
+        // We dispatch the event to trigger the drag mode overlay.
+        // It requires a small delay to allow the context menu to close without eating the event or state.
+        setTimeout(() => {
+          const sessionId = focusedId || getParentSessionId();
+          document.dispatchEvent(new CustomEvent("terminal-drag-start", { detail: { sessionId, x, y } }));
+        }, 50);
+      },
     },
     {
       id: "sep1",

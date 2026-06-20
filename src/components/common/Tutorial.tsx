@@ -11,11 +11,13 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 
-const STEPS = [
+import { formatShortcut } from "@/lib/shortcuts";
+
+const getSteps = (commandKey: string) => [
   {
     icon: Zap,
     title: "Welcome to Forge",
-    content: "Forge is a terminal emulator and multiplexer — run and manage multiple terminal sessions in one window.\n\nThis quick guide will walk you through the essentials.",
+    content: `Forge is a terminal emulator and multiplexer — run and manage multiple terminal sessions in one window.\n\nThis quick guide will walk you through the essentials.\n\n**Note**: The Command Key is currently set to '${commandKey}'. You can change this at any time in the Settings panel!`,
     target: null,
   },
   {
@@ -23,7 +25,7 @@ const STEPS = [
     title: "Passthrough Mode",
     content:
       "Passthrough is ON by default — keyboard shortcuts are intercepted by Forge.\n\n" +
-      "Press Ctrl+` to toggle OFF (THRU mode) so all keys go directly to the terminal.\n\n" +
+      `Press ${formatShortcut("Ctrl+<cmd>", commandKey)} to toggle OFF (THRU mode) so all keys go directly to the terminal.\n\n` +
       "The status bar shows CMD (passthrough ON) or THRU (passthrough OFF) on the left.",
     target: '[title="Toggle Passthrough"]',
   },
@@ -42,7 +44,7 @@ const STEPS = [
     icon: LayoutPanelTop,
     title: "Tabs & Navigation",
     content:
-      "• Ctrl+Shift+` — New terminal\n" +
+      `• ${formatShortcut("Ctrl+Shift+<cmd>", commandKey)} — New terminal\n` +
       "• Ctrl+W — Close current tab/pane\n" +
       "• Ctrl+Shift+W — Close entire tab\n" +
       "• Ctrl+Tab / Ctrl+Shift+Tab — Next / previous tab\n" +
@@ -144,6 +146,9 @@ export function Tutorial({ isOpen, onClose }: TutorialProps) {
   const [mounted, setMounted] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const tutorialTabIdsRef = useRef<string[]>([]);
+  const configStore = useConfigStore();
+  const commandKey = configStore.config.shortcuts.commandKey;
+  const STEPS = getSteps(commandKey);
   const total = STEPS.length;
   const current = STEPS[step];
   const isLast = step === total - 1;

@@ -16,13 +16,13 @@ export function TerminalDragOverlay() {
 
   useEffect(() => {
     const startDrag = (e: Event) => {
-      const customEvent = e as CustomEvent<{ sessionId: string }>;
+      const customEvent = e as CustomEvent<{ sessionId: string; x?: number; y?: number }>;
       setDrag({
         draggingId: customEvent.detail.sessionId,
         targetId: null,
         zone: null,
-        x: -1,
-        y: -1,
+        x: customEvent.detail.x ?? -1,
+        y: customEvent.detail.y ?? -1,
       });
       document.body.style.cursor = "grabbing";
     };

@@ -16,19 +16,22 @@
 - **Web Preview Panel:** Browse the web or read documentation side-by-side with your terminal. Toggle it with `Ctrl+Shift+Y`, move it to the left or right, and automatically route `Ctrl+Click` links from the terminal into the previewer.
 - **File Viewer Tabs:** Native support for viewing images and raw files inside their own tabs without leaving the application.
 - **Past Sessions Memory:** Access your past terminal paths and quickly launch new sessions exactly where you need them (`Ctrl+Shift+O`).
-- **Passthrough Mode:** Toggle keyboard passthrough (`Ctrl+` `) to send shortcuts directly to terminal applications (like vim/nano/tmux) without triggering Forge's UI commands.
+- **Passthrough Mode & Dynamic Command Key:** Toggle keyboard passthrough (`Ctrl+<cmd>`) to send shortcuts directly to terminal applications (like vim/nano/tmux) without triggering Forge's UI commands. The core `<cmd>` key (default `` ` ``) is fully customizable in the settings, instantly adapting all global shortcuts to fit your exact workflow.
 - **Beautiful & Customizable:** Powered by the gorgeous **Catppuccin** color palette. Customize your default shell, font, cursor style, scrollback limits, status bar visibility, animations, and more via a rich built-in settings panel.
 - **Developer Mode & Tutorial:** Built-in interactive tutorial for onboarding, and advanced developer modes for configuration resets.
 
 ## Keybindings
 
+> [!NOTE]
+> Forge uses a dynamic **Command Key** denoted as `<cmd>` in the shortcuts below. By default, this is the backquote (`` ` ``) key. You can completely customize this key in the **Settings** panel (e.g., change it to `m` or `'`) to match your keyboard layout and workflow perfectly.
+
 ### Global Shortcuts
 
 | Shortcut            | Action                      |
 | ------------------- | --------------------------- |
-| `Ctrl + \``         | Toggle Passthrough Mode     |
-| `Ctrl + Shift + \`` | New Terminal                |
-| `Ctrl + Alt + \``   | New Terminal at custom Path |
+| `Ctrl + <cmd>`      | Toggle Passthrough Mode     |
+| `Ctrl + Shift + <cmd>` | New Terminal                |
+| `Ctrl + Alt + <cmd>`| New Terminal at custom Path |
 | `Ctrl + Shift + P`  | Command Palette             |
 | `Ctrl + ,`          | Open Settings               |
 | `Ctrl + Shift + O`  | Past Sessions               |

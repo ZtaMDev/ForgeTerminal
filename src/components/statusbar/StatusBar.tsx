@@ -4,6 +4,7 @@ import { useConfigStore } from "@/stores/configStore";
 import { usePreviewStore } from "@/stores/previewStore";
 import { isPrefixActive } from "@/lib/prefixMode";
 import { TerminalStatus } from "./TerminalStatus";
+import { formatShortcut } from "@/lib/shortcuts";
 import { Image, FileType, Settings, FolderClock, Globe } from "lucide-react";
 import { isImageFile } from "@/components/viewer/ImageViewer";
 
@@ -79,7 +80,7 @@ export function StatusBar() {
         </button>
         <span className="text-surface1">|</span>
         <span className="hover:text-fg cursor-default" title="Toggle Passthrough">
-          Ctrl+` {prefixActive ? "THRU" : "CMD"}
+          {formatShortcut("Ctrl+<cmd>", config.shortcuts.commandKey)} {prefixActive ? "THRU" : "CMD"}
         </span>
         <span className="text-surface1">|</span>
         <span className="hover:text-fg cursor-default" title="Command Palette">

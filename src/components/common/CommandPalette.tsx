@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { useConfigStore } from "@/stores/configStore";
+import { formatShortcut } from "@/lib/shortcuts";
 
 export interface Command {
   id: string;
@@ -31,6 +32,7 @@ export function CommandPalette({
   const selectedIndexRef = useRef(0);
   const filteredRef = useRef<Command[]>([]);
   const animSpeed = useConfigStore((s) => s.config.theme.animations.enabled ? s.config.theme.animations.speed : 0);
+  const commandKey = useConfigStore((s) => s.config.shortcuts.commandKey);
 
   const filtered = query
     ? commands.filter((cmd) =>
@@ -182,7 +184,7 @@ export function CommandPalette({
               <span className="flex-1 text-sm truncate">{cmd.name}</span>
               {cmd.shortcut && (
                 <span className="text-[10px] text-fg-subtle flex-shrink-0">
-                  {cmd.shortcut}
+                  {formatShortcut(cmd.shortcut, commandKey)}
                 </span>
               )}
             </div>

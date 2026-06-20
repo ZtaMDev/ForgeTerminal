@@ -52,7 +52,7 @@ export function useKeyboardShortcuts() {
         // Ctrl+`:
         // - If terminal is focused: toggle passthrough OFF (deactivate)
         // - If terminal is NOT focused: just focus it, don't change passthrough
-        if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+        if (matchShortcut(e, "Ctrl+<cmd>", config.shortcuts.commandKey)) {
           e.preventDefault();
           e.stopPropagation();
           if (isTerminalFocused) {
@@ -142,7 +142,7 @@ export function useKeyboardShortcuts() {
           ["terminal", shortcuts.terminal],
         ];
         for (const [category, bindings] of allBindings) {
-          const binding = findBinding(bindings, e);
+          const binding = findBinding(bindings, e, config.shortcuts.commandKey);
           if (binding) {
             e.preventDefault();
             e.stopPropagation();
@@ -156,8 +156,8 @@ export function useKeyboardShortcuts() {
       }
 
       // ─── PASSTHROUGH MODE: OFF (terminal-only) ───────────
-      // All keys go directly to the terminal. Ctrl+` reactivates passthrough.
-      if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      // All keys go directly to the terminal. Ctrl+<cmd> reactivates passthrough.
+      if (matchShortcut(e, "Ctrl+<cmd>", config.shortcuts.commandKey)) {
         e.preventDefault();
         e.stopPropagation();
         if (isTerminalFocused) {
@@ -217,9 +217,10 @@ export function useKeyboardShortcuts() {
   function findBinding(
     bindings: Record<string, string[]>,
     e: KeyboardEvent,
+    commandKey?: string,
   ): string | null {
     for (const [command, keys] of Object.entries(bindings)) {
-      if (keys.some((k) => matchShortcut(e, k))) {
+      if (keys.some((k) => matchShortcut(e, k, commandKey))) {
         return command;
       }
     }
@@ -510,8 +511,7 @@ export function useKeyboardShortcuts() {
         try {
           import("@tauri-apps/api/window").then(async (m) => {
             const win = m.getCurrentWindow();
-            const isFull = await win.isFullscreen();
-            await win.setFullscreen(!isFull);
+            await win.toggleMaximize();
           });
         } catch {
           if (!document.fullscreenElement) {

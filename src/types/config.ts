@@ -38,6 +38,7 @@ export interface ShortcutEntry {
 }
 
 export interface ShortcutsConfig {
+  commandKey: string;
   global: Record<string, string[]>;
   terminal: Record<string, string[]>;
 }

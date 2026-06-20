@@ -1,10 +1,11 @@
 import type { ShortcutsConfig } from "@/types/config";
 
 export const defaultShortcuts: ShortcutsConfig = {
+  commandKey: "`",
   global: {
-    "toggle-passthrough": ["Ctrl+`"],
+    "toggle-passthrough": ["Ctrl+<cmd>"],
     "command-palette": ["Ctrl+Shift+P"],
-    "new-terminal": ["Ctrl+Shift+`"],
+    "new-terminal": ["Ctrl+Shift+<cmd>"],
     "close-tab": ["Ctrl+W"],
     "close-entire-tab": ["Ctrl+Shift+W"],
     "next-tab": ["Ctrl+Tab"],
@@ -30,7 +31,7 @@ export const defaultShortcuts: ShortcutsConfig = {
     "move-tab-up": ["Alt+ArrowUp"],
     "move-tab-down": ["Alt+ArrowDown"],
     "release-focus": ["Ctrl+Shift+Space"],
-    "new-terminal-at": ["Ctrl+Alt+`"],
+    "new-terminal-at": ["Ctrl+Alt+<cmd>"],
     "open-settings": ["Ctrl+,"],
     "toggle-preview": ["Ctrl+Shift+Y"],
     "font-increase": ["Ctrl+="],
@@ -54,8 +55,13 @@ export interface ParsedShortcut {
   meta: boolean;
 }
 
-export function parseShortcut(shortcut: string): ParsedShortcut {
-  const parts = shortcut.split("+");
+export function formatShortcut(shortcut: string, commandKey: string): string {
+  return shortcut.replace("<cmd>", commandKey);
+}
+
+export function parseShortcut(shortcut: string, commandKey?: string): ParsedShortcut {
+  const finalShortcut = commandKey ? formatShortcut(shortcut, commandKey) : shortcut;
+  const parts = finalShortcut.split("+");
   return {
     ctrl: parts.includes("Ctrl"),
     shift: parts.includes("Shift"),
@@ -114,8 +120,8 @@ const keyToCode: Record<string, string[]> = {
   Y: ["KeyY"],
 };
 
-export function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
-  const parsed = parseShortcut(shortcut);
+export function matchShortcut(event: KeyboardEvent, shortcut: string, commandKey?: string): boolean {
+  const parsed = parseShortcut(shortcut, commandKey);
 
   const modifiersMatch =
     (event.ctrlKey || event.metaKey) === (parsed.ctrl || parsed.meta) &&
