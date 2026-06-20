@@ -33,7 +33,6 @@
 | `Ctrl + ,`          | Open Settings               |
 | `Ctrl + Shift + O`  | Past Sessions               |
 | `Ctrl + Shift + Y`  | Toggle Web Preview Panel    |
-| `F11`               | Toggle Fullscreen           |
 
 ### Tab Management
 
