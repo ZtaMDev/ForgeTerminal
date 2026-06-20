@@ -8,6 +8,17 @@
 
 **Forge** is a modern, high-performance terminal emulator and multiplexer built with Tauri, React, and xterm.js. Run, arrange, and manage multiple terminal sessions in a single, fluid interface with advanced splitting, tabs, and an integrated Web Preview panel.
 
+<table align="center">
+<tr>
+<td>
+<img width="400" alt="EasyHotCorners Screenshot 1" src="https://github.com/user-attachments/assets/4c1d1cf8-0779-455c-80d7-b1794803274d" />
+</td>
+<td>
+<img width="400" alt="EasyHotCorners Screenshot 2" src="https://github.com/user-attachments/assets/b9a186bf-8f48-4c00-bfa0-d7864232719d" />
+</td>
+</tr>
+</table>
+
 ## Key Features
 
 - **Advanced Multiplexing & Layouts:** Split panes horizontally or vertically to create complex binary-tree terminal grids. Resize panes effortlessly.
