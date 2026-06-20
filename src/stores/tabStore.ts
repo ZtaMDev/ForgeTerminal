@@ -207,26 +207,29 @@ export const useTabStore = create<TabState>((set, get) => ({
     if (!tab || !tab.splitNode) return;
 
     set((s) => {
-      import("@/lib/splitUtils").then(({ removeNode }) => {
+      import("@/lib/splitUtils").then(({ removeNode, getAdjacentSession, getSessions }) => {
+        const adjacentSessionId = getAdjacentSession(tab.splitNode!, sessionId);
         const newRoot = removeNode(tab.splitNode!, sessionId);
+        
         if (!newRoot) {
            // Should not happen unless removing the last node, in which case tab should be closed.
         } else if (newRoot.type === "terminal") {
            s.updateTab(tabId, { type: "terminal", sessionId: newRoot.sessionId, splitNode: undefined });
            setTimeout(() => {
-             document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newRoot.sessionId } }));
+             const targetToFocus = adjacentSessionId ?? newRoot.sessionId;
+             document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: targetToFocus } }));
+             useTerminalStore.getState().setFocusedSession(targetToFocus);
            }, 0);
         } else {
            s.updateTab(tabId, { splitNode: newRoot });
-           import("@/lib/splitUtils").then(({ getSessions }) => {
-             const remaining = getSessions(newRoot);
-             if (remaining.length > 0) {
-               setTimeout(() => {
-                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: remaining[0] } }));
-                 useTerminalStore.getState().setFocusedSession(remaining[0]);
-               }, 50);
-             }
-           });
+           const remaining = getSessions(newRoot);
+           if (remaining.length > 0) {
+             const targetToFocus = adjacentSessionId && remaining.includes(adjacentSessionId) ? adjacentSessionId : remaining[0];
+             setTimeout(() => {
+               document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: targetToFocus } }));
+               useTerminalStore.getState().setFocusedSession(targetToFocus);
+             }, 50);
+           }
         }
       });
       return { ...s };

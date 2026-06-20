@@ -90,3 +90,22 @@ export function getSessions(root: SplitNode): string[] {
   }
   return root.children.flatMap(getSessions);
 }
+
+export function getAdjacentSession(root: SplitNode, targetId: string): string | null {
+  const parent = findNodeParent(root, targetId);
+  if (!parent || parent.type !== "split") return null;
+
+  const idx = parent.children.findIndex(c => c.id === targetId || (c.type === "terminal" && c.sessionId === targetId));
+  if (idx === -1) return null;
+
+  if (idx > 0) {
+    const prevSibling = parent.children[idx - 1];
+    const sessions = getSessions(prevSibling);
+    return sessions[sessions.length - 1] ?? null;
+  } else if (idx < parent.children.length - 1) {
+    const nextSibling = parent.children[idx + 1];
+    const sessions = getSessions(nextSibling);
+    return sessions[0] ?? null;
+  }
+  return null;
+}
