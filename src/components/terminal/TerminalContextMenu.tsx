@@ -3,6 +3,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import type { Tab } from "@/types/terminal";
 import { Columns2, Columns2Icon, X, Copy, SplitSquareHorizontal, SquareTerminal } from "lucide-react";
+import { getSessions } from "@/lib/splitUtils";
 
 interface TerminalContextMenuProps {
   isOpen: boolean;
@@ -13,16 +14,17 @@ interface TerminalContextMenuProps {
 }
 
 export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalContextMenuProps) {
-  const isSplit = tab.type === "split" && tab.splitLayout && tab.splitLayout.splits.length > 1;
+  const isSplit = tab.type === "split" && tab.splitNode && getSessions(tab.splitNode).length > 1;
   const focusedId = useTerminalStore.getState().focusedSessionId;
-  const isFocusedInSplit = isSplit && focusedId && tab.splitLayout!.splits.includes(focusedId);
+  const isFocusedInSplit = isSplit && focusedId && getSessions(tab.splitNode!).includes(focusedId);
 
   const getParentSessionId = () => {
-    if (isSplit) {
-      if (focusedId && tab.splitLayout?.splits.includes(focusedId)) {
+    if (isSplit && tab.splitNode) {
+      const splits = getSessions(tab.splitNode);
+      if (focusedId && splits.includes(focusedId)) {
         return focusedId;
       }
-      return tab.splitLayout?.splits[0] ?? tab.id;
+      return splits[0] ?? tab.id;
     }
     return tab.sessionId ?? tab.id;
   };
@@ -53,14 +55,14 @@ export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalCont
       label: "Split Horizontally",
       icon: <Columns2 size={14} />,
       shortcut: "Ctrl+\\",
-      action: () => createSplitSession((id) => useTabStore.getState().splitHorizontal(id)),
+      action: () => createSplitSession((id) => useTabStore.getState().splitHorizontal(id, focusedId || undefined)),
     },
     {
       id: "split-v",
       label: "Split Vertically",
       icon: <Columns2Icon size={14} />,
       shortcut: "Ctrl+Shift+\\",
-      action: () => createSplitSession((id) => useTabStore.getState().splitVertical(id)),
+      action: () => createSplitSession((id) => useTabStore.getState().splitVertical(id, focusedId || undefined)),
     },
     {
       id: "sep1",

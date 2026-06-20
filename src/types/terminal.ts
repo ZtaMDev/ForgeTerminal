@@ -11,10 +11,9 @@ export interface TerminalSession {
   createdAt: number;
 }
 
-export interface SplitLayout {
-  direction: "horizontal" | "vertical";
-  splits: string[];
-}
+export type SplitNode =
+  | { type: "terminal"; id: string; sessionId: string }
+  | { type: "split"; id: string; direction: "horizontal" | "vertical"; children: SplitNode[]; sizes?: number[] };
 
 export type TabType = "terminal" | "viewer" | "split";
 
@@ -24,7 +23,7 @@ export interface Tab {
   title: string;
   sessionId?: string;
   filePath?: string;
-  splitLayout?: SplitLayout;
+  splitNode?: SplitNode;
   pinned: boolean;
   createdAt: number;
 }

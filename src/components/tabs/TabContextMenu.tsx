@@ -3,6 +3,7 @@ import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import type { Tab } from "@/types/terminal";
 import { X, Copy, Pin, PinOff, Columns2, Columns2Icon, SquareTerminal } from "lucide-react";
+import { getSessions } from "@/lib/splitUtils";
 
 interface TabContextMenuProps {
   isOpen: boolean;
@@ -14,11 +15,11 @@ interface TabContextMenuProps {
 
 export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuProps) {
   const store = useTabStore;
-  const isSplit = tab.type === "split" && tab.splitLayout && tab.splitLayout.splits.length > 1;
+  const isSplit = tab.type === "split" && tab.splitNode && getSessions(tab.splitNode).length > 1;
   const focusedId = useTerminalStore.getState().focusedSessionId;
 
   const items: ContextMenuItem[] = [
-    ...(isSplit && focusedId && tab.splitLayout!.splits.includes(focusedId)
+    ...(isSplit && focusedId && getSessions(tab.splitNode!).includes(focusedId)
       ? [
           {
             id: "close-pane",
@@ -123,16 +124,17 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
               const termStore = useTerminalStore.getState();
               
               let parentSessionId = tab.sessionId;
-              if (tab.type === "split" && tab.splitLayout?.splits) {
-                if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
+              if (tab.type === "split" && tab.splitNode) {
+                const splits = getSessions(tab.splitNode);
+                if (focusedId && splits.includes(focusedId)) {
                   parentSessionId = focusedId;
                 } else {
-                  parentSessionId = tab.splitLayout.splits[0];
+                  parentSessionId = splits[0];
                 }
               }
               const parentSession = parentSessionId ? termStore.sessions.get(parentSessionId) : undefined;
 
-              const newId = tabStore.splitHorizontal(tab.id);
+              const newId = tabStore.splitHorizontal(tab.id, focusedId || undefined);
               if (newId) {
                 termStore.addSession({
                   id: newId,
@@ -157,16 +159,17 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
               const termStore = useTerminalStore.getState();
               
               let parentSessionId = tab.sessionId;
-              if (tab.type === "split" && tab.splitLayout?.splits) {
-                if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
+              if (tab.type === "split" && tab.splitNode) {
+                const splits = getSessions(tab.splitNode);
+                if (focusedId && splits.includes(focusedId)) {
                   parentSessionId = focusedId;
                 } else {
-                  parentSessionId = tab.splitLayout.splits[0];
+                  parentSessionId = splits[0];
                 }
               }
               const parentSession = parentSessionId ? termStore.sessions.get(parentSessionId) : undefined;
 
-              const newId = tabStore.splitVertical(tab.id);
+              const newId = tabStore.splitVertical(tab.id, focusedId || undefined);
               if (newId) {
                 termStore.addSession({
                   id: newId,

@@ -2,6 +2,7 @@ import type { Command } from "@/components/common/CommandPalette";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
+import { getSessions } from "@/lib/splitUtils";
 
 export function getAllCommands(): Command[] {
   const commands: Command[] = [];
@@ -63,12 +64,16 @@ export function getAllCommands(): Command[] {
         const activeTab = allTabs.find((t) => t.id === activeId);
         if (activeTab && (activeTab.type === "terminal" || activeTab.type === "split")) {
           const { focusedSessionId, setFocusedSession } = useTerminalStore.getState();
-          if (activeTab.splitLayout && activeTab.splitLayout.splits.length > 1) {
-            const splits = activeTab.splitLayout.splits;
+          if (activeTab.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (splits.length > 1) {
             const idx = focusedSessionId ? splits.indexOf(focusedSessionId) : -1;
             const next = (idx + 1) % splits.length;
             setFocusedSession(splits[next]);
             document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: splits[next] } }));
+            } else {
+              document.dispatchEvent(new CustomEvent("focus-terminal"));
+            }
           } else {
             document.dispatchEvent(new CustomEvent("focus-terminal"));
           }
@@ -93,11 +98,12 @@ export function getAllCommands(): Command[] {
           const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
           const focusedId = termState.focusedSessionId;
           let parentSessionId = activeTab?.sessionId;
-          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
-            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+          if (activeTab?.type === "split" && activeTab.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (focusedId && splits.includes(focusedId)) {
               parentSessionId = focusedId;
             } else {
-              parentSessionId = activeTab.splitLayout.splits[0];
+              parentSessionId = splits[0];
             }
           }
           const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
@@ -131,11 +137,12 @@ export function getAllCommands(): Command[] {
           const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
           const focusedId = termState.focusedSessionId;
           let parentSessionId = activeTab?.sessionId;
-          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
-            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+          if (activeTab?.type === "split" && activeTab.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (focusedId && splits.includes(focusedId)) {
               parentSessionId = focusedId;
             } else {
-              parentSessionId = activeTab.splitLayout.splits[0];
+              parentSessionId = splits[0];
             }
           }
           const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
@@ -165,8 +172,9 @@ export function getAllCommands(): Command[] {
       action: () => {
         if (!activeTabId) return;
         const tab = tabs.find((t) => t.id === activeTabId);
-        if (!tab?.splitLayout || tab.splitLayout.splits.length < 2) return;
-        const splits = tab.splitLayout.splits;
+        if (!tab?.splitNode) return;
+        const splits = getSessions(tab.splitNode);
+        if (splits.length < 2) return;
         const idx = focusedId ? splits.indexOf(focusedId) : -1;
         const next = (idx + 1) % splits.length;
         useTerminalStore.getState().setFocusedSession(splits[next]);
@@ -181,8 +189,9 @@ export function getAllCommands(): Command[] {
       action: () => {
         if (!activeTabId) return;
         const tab = tabs.find((t) => t.id === activeTabId);
-        if (!tab?.splitLayout || tab.splitLayout.splits.length < 2) return;
-        const splits = tab.splitLayout.splits;
+        if (!tab?.splitNode) return;
+        const splits = getSessions(tab.splitNode);
+        if (splits.length < 2) return;
         const idx = focusedId ? splits.indexOf(focusedId) : -1;
         const prev = (idx - 1 + splits.length) % splits.length;
         useTerminalStore.getState().setFocusedSession(splits[prev]);
@@ -237,14 +246,14 @@ export function getAllCommands(): Command[] {
         let targetId: string | undefined | null;
         if (fId) {
           const tWith = tabState.tabs.find(
-            (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
+            (t) => t.sessionId === fId || (t.splitNode && getSessions(t.splitNode).includes(fId)),
           );
           targetId = tWith?.id;
         }
         if (!targetId) targetId = activeTabId;
         if (!targetId) return;
         const tab = tabState.tabs.find((t) => t.id === targetId);
-        if (tab?.type === "split" && tab.splitLayout?.splits.includes(fId ?? "")) {
+        if (tab?.type === "split" && tab.splitNode && getSessions(tab.splitNode).includes(fId ?? "")) {
           tabState.closeSplit(targetId, fId!);
         } else {
           tabState.removeTab(targetId);
@@ -262,7 +271,7 @@ export function getAllCommands(): Command[] {
         let targetId: string | undefined | null;
         if (fId) {
           const tWith = tabState.tabs.find(
-            (t) => t.sessionId === fId || (t.splitLayout && t.splitLayout.splits.includes(fId)),
+            (t) => t.sessionId === fId || (t.splitNode && getSessions(t.splitNode).includes(fId)),
           );
           targetId = tWith?.id;
         }
@@ -454,14 +463,17 @@ export function getAllCommands(): Command[] {
 
   // Per-tab commands
   for (const tab of tabs) {
-    if (tab.type === "split" && tab.splitLayout && tab.splitLayout.splits.length > 1) {
-      for (const sid of tab.splitLayout.splits) {
+    if (tab.type === "split" && tab.splitNode) {
+      const splits = getSessions(tab.splitNode);
+      if (splits.length > 1) {
+        for (const sid of splits) {
         commands.push({
           id: `close-pane.${sid}`,
           name: `Close Pane in "${tab.title}"`,
           category: "Sessions",
           action: () => useTabStore.getState().closeSplit(tab.id, sid),
         });
+        }
       }
     }
     if (tab.type === "terminal" || tab.type === "split") {

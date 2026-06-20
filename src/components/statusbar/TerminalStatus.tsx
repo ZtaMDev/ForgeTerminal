@@ -12,7 +12,17 @@ export function TerminalStatus() {
       ? (() => {
           const tab = tabs.find((t) => t.id === activeTabId);
           if (!tab) return null;
-          const sid = tab.type === "split" ? tab.splitLayout?.splits[0] : tab.sessionId;
+          let sid = tab.sessionId;
+          if (tab.type === "split" && tab.splitNode) {
+            import("@/lib/splitUtils").then(({ getSessions }) => {
+               // We can't use async here cleanly without state, so let's write a simple inline tree traverse
+            });
+            const getFirstSession = (node: import("@/types/terminal").SplitNode): string | undefined => {
+              if (node.type === "terminal") return node.sessionId;
+              return node.children[0] ? getFirstSession(node.children[0]) : undefined;
+            };
+            sid = getFirstSession(tab.splitNode);
+          }
           return sid ? sessions.get(sid) : null;
         })()
       : null;

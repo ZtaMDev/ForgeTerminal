@@ -4,15 +4,15 @@ import { SplitTerminal } from "./SplitTerminal";
 import { TerminalContextMenu } from "./TerminalContextMenu";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
-import type { SplitLayout } from "@/types/terminal";
+import type { SplitNode } from "@/types/terminal";
 
 interface TerminalTabProps {
   tabId: string;
   sessionId?: string;
-  splitLayout?: SplitLayout;
+  splitNode?: SplitNode;
 }
 
-export function TerminalTab({ tabId, sessionId, splitLayout }: TerminalTabProps) {
+export function TerminalTab({ tabId, sessionId, splitNode }: TerminalTabProps) {
   const [ctx, setCtx] = useState<{ x: number; y: number } | null>(null);
   const tab = useTabStore((s) => s.tabs.find((t) => t.id === tabId));
   const session = useTerminalStore((s) =>
@@ -28,8 +28,8 @@ export function TerminalTab({ tabId, sessionId, splitLayout }: TerminalTabProps)
 
   return (
     <div className="flex-1 flex flex-col min-h-0 min-w-0" onContextMenu={handleContextMenu}>
-      {splitLayout ? (
-        <SplitTerminal layout={splitLayout} tabId={tabId} />
+      {splitNode ? (
+        <SplitTerminal node={splitNode} tabId={tabId} />
       ) : (
         <TerminalInstance sessionId={sessionId ?? tabId} tabId={tabId} cwd={session?.cwd} />
       )}

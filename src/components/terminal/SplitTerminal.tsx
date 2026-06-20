@@ -1,24 +1,28 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { TerminalInstance } from "./TerminalInstance";
-import type { SplitLayout } from "@/types/terminal";
+import type { SplitNode } from "@/types/terminal";
 import { useTerminalStore } from "@/stores/terminalStore";
 
 interface SplitTerminalProps {
-  layout: SplitLayout;
+  node: SplitNode;
   tabId: string;
 }
 
-export function SplitTerminal({ layout, tabId }: SplitTerminalProps) {
-  const n = layout.splits.length;
-  const [sizes, setSizes] = useState<number[]>(() => Array(n).fill(100 / n));
+export function SplitTerminal({ node, tabId }: SplitTerminalProps) {
+  if (node.type === "terminal") {
+    return <TerminalInstance sessionId={node.sessionId} tabId={tabId} />;
+  }
+
+  const n = node.children.length;
+  const [sizes, setSizes] = useState<number[]>(() => node.sizes ?? Array(n).fill(100 / n));
   const containerRef = useRef<HTMLDivElement>(null);
   const sessions = useTerminalStore((s) => s.sessions);
 
   useEffect(() => {
-    setSizes(Array(layout.splits.length).fill(100 / layout.splits.length));
-  }, [layout.splits.length]);
+    setSizes(node.sizes ?? Array(node.children.length).fill(100 / node.children.length));
+  }, [node.sizes, node.children.length]);
 
-  const isHorizontal = layout.direction === "horizontal";
+  const isHorizontal = node.direction === "horizontal";
 
   const handleResize = useCallback(
     (index: number, delta: number) => {
@@ -46,26 +50,25 @@ export function SplitTerminal({ layout, tabId }: SplitTerminalProps) {
     [isHorizontal, n],
   );
 
-  if (layout.splits.length === 0) {
-    return <TerminalInstance sessionId={tabId} />;
-  }
-
   const items: React.ReactNode[] = [];
-  for (let i = 0; i < layout.splits.length; i++) {
-    const sId = layout.splits[i];
-    const session = sessions.get(sId);
+  for (let i = 0; i < node.children.length; i++) {
+    const childNode = node.children[i];
     items.push(
       <div
-        key={sId}
+        key={childNode.id || `child-${i}`}
         className="flex flex-col min-h-0 min-w-0 anim-transition anim-slide"
-        style={{ flexBasis: `${sizes[i]}%`, flexGrow: 0, flexShrink: 0, overflow: "hidden" }}
+        style={{ 
+          [isHorizontal ? 'width' : 'height']: `${sizes[i]}%`,
+          [isHorizontal ? 'height' : 'width']: '100%',
+          flexGrow: 0, 
+          flexShrink: 0, 
+          overflow: "hidden" 
+        }}
       >
-        <div className="flex-1 min-h-0 min-w-0">
-          <TerminalInstance sessionId={sId} cwd={session?.cwd} />
-        </div>
+        <SplitTerminal node={childNode} tabId={tabId} />
       </div>,
     );
-    if (i < layout.splits.length - 1) {
+    if (i < node.children.length - 1) {
       items.push(
         <SplitResizer key={`r-${i}`} isHorizontal={isHorizontal} onResize={(d) => handleResize(i, d)} />,
       );

@@ -445,8 +445,21 @@ export function TerminalInstance({
     config.terminal.scrollback,
   ]);
 
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 2 && e.ctrlKey && e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      document.dispatchEvent(new CustomEvent("terminal-drag-start", { detail: { sessionId } }));
+    }
+  };
+
   return (
-    <div className="w-full h-full relative group">
+    <div 
+      className="h-full w-full relative group" 
+      data-terminal-id={sessionId}
+      onMouseDown={handleMouseDown}
+    >
       <div
         ref={terminalRef}
         className="w-full h-full"

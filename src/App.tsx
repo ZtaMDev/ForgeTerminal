@@ -8,6 +8,8 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Loader2, Terminal } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getProcessArgs } from "@/lib/ipc";
+import { getSessions } from "@/lib/splitUtils";
+import { TerminalDragOverlay } from "@/components/terminal/TerminalDragOverlay";
 
 export default function App() {
   const { loadConfig, loaded, config } = useConfigStore();
@@ -101,7 +103,7 @@ export default function App() {
         const tabWithSession = tabState.tabs.find(
           (t) =>
             t.sessionId === lastId ||
-            (t.splitLayout && t.splitLayout.splits.includes(lastId)),
+            (t.splitNode && getSessions(t.splitNode).includes(lastId)),
         );
         if (tabWithSession && tabWithSession.id !== tabState.activeTabId) {
           tabState.setActiveTab(tabWithSession.id);
@@ -203,6 +205,7 @@ export default function App() {
     <>
       <MainLayout />
       <ConfirmDialog />
+      <TerminalDragOverlay />
     </>
   );
 }

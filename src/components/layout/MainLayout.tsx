@@ -154,7 +154,7 @@ export function MainLayout() {
           <TerminalTab
             tabId={activeTab.id}
             sessionId={activeTab.sessionId}
-            splitLayout={activeTab.splitLayout}
+            splitNode={activeTab.splitNode}
           />
         );
       case "viewer":

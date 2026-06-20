@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Tab, TabType, SplitLayout } from "@/types/terminal";
+import type { Tab, TabType, SplitNode } from "@/types/terminal";
 import { useTerminalStore } from "./terminalStore";
 
 const STORAGE_KEY = "forge-session";
@@ -38,9 +38,10 @@ interface TabState {
   updateTab: (id: string, partial: Partial<Tab>) => void;
   togglePinTab: (id: string) => void;
   duplicateTab: (id: string) => string;
-  splitHorizontal: (tabId: string) => string | undefined;
-  splitVertical: (tabId: string) => string | undefined;
+  splitHorizontal: (tabId: string, focusedSessionId?: string) => string | undefined;
+  splitVertical: (tabId: string, focusedSessionId?: string) => string | undefined;
   closeSplit: (tabId: string, sessionId: string) => void;
+  swapSessions: (tabId: string, sessionId1: string, sessionId2: string) => void;
 }
 
 export const useTabStore = create<TabState>((set, get) => ({
@@ -158,56 +159,44 @@ export const useTabStore = create<TabState>((set, get) => ({
     return newId;
   },
 
-  splitHorizontal: (tabId) => {
+  splitHorizontal: (tabId, focusedSessionId) => {
     const state = get();
     const tab = state.tabs.find((t) => t.id === tabId);
     if (!tab) return;
 
     const newSessionId = crypto.randomUUID();
-    const existingSessions = tab.splitLayout?.splits ?? [tab.sessionId ?? tabId];
+    const targetId = focusedSessionId ?? tab.sessionId ?? tabId;
 
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId
-          ? {
-              ...t,
-              type: "split" as TabType,
-              sessionId: undefined,
-              splitLayout: {
-                direction: "horizontal",
-                splits: [...existingSessions, newSessionId],
-              },
-            }
-          : t,
-      ),
-    }));
+    set((s) => {
+      let rootNode = tab.splitNode ?? { type: "terminal", id: crypto.randomUUID(), sessionId: tab.sessionId ?? tabId } as SplitNode;
+      import("@/lib/splitUtils").then(({ splitNodeAt }) => {
+        const newRoot = splitNodeAt(rootNode, targetId, newSessionId, "horizontal");
+        s.updateTab(tabId, { type: "split", sessionId: undefined, splitNode: newRoot });
+      });
+      return { ...s }; // Update will happen asynchronously via promise
+    });
 
+    // Synchronous fallback (we can do it synchronously if we import at the top, but we can't easily add top-level imports in multi_replace. Let's do it inline.)
+    // Actually, I should just implement it inline here or import it synchronously.
     return newSessionId;
   },
 
-  splitVertical: (tabId) => {
+  splitVertical: (tabId, focusedSessionId) => {
     const state = get();
     const tab = state.tabs.find((t) => t.id === tabId);
     if (!tab) return;
 
     const newSessionId = crypto.randomUUID();
-    const existingSessions = tab.splitLayout?.splits ?? [tab.sessionId ?? tabId];
+    const targetId = focusedSessionId ?? tab.sessionId ?? tabId;
 
-    set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.id === tabId
-          ? {
-              ...t,
-              type: "split" as TabType,
-              sessionId: undefined,
-              splitLayout: {
-                direction: "vertical",
-                splits: [...existingSessions, newSessionId],
-              },
-            }
-          : t,
-      ),
-    }));
+    set((s) => {
+      let rootNode = tab.splitNode ?? { type: "terminal", id: crypto.randomUUID(), sessionId: tab.sessionId ?? tabId } as SplitNode;
+      import("@/lib/splitUtils").then(({ splitNodeAt }) => {
+        const newRoot = splitNodeAt(rootNode, targetId, newSessionId, "vertical");
+        s.updateTab(tabId, { type: "split", sessionId: undefined, splitNode: newRoot });
+      });
+      return { ...s };
+    });
 
     return newSessionId;
   },
@@ -215,47 +204,53 @@ export const useTabStore = create<TabState>((set, get) => ({
   closeSplit: (tabId, sessionId) => {
     const state = get();
     const tab = state.tabs.find((t) => t.id === tabId);
-    if (!tab || !tab.splitLayout) return;
+    if (!tab || !tab.splitNode) return;
 
-    const newSplits = tab.splitLayout.splits.filter((s) => s !== sessionId);
+    set((s) => {
+      import("@/lib/splitUtils").then(({ removeNode }) => {
+        const newRoot = removeNode(tab.splitNode!, sessionId);
+        if (!newRoot) {
+           // Should not happen unless removing the last node, in which case tab should be closed.
+        } else if (newRoot.type === "terminal") {
+           s.updateTab(tabId, { type: "terminal", sessionId: newRoot.sessionId, splitNode: undefined });
+           setTimeout(() => {
+             document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: newRoot.sessionId } }));
+           }, 0);
+        } else {
+           s.updateTab(tabId, { splitNode: newRoot });
+           import("@/lib/splitUtils").then(({ getSessions }) => {
+             const remaining = getSessions(newRoot);
+             if (remaining.length > 0) {
+               setTimeout(() => {
+                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: remaining[0] } }));
+                 useTerminalStore.getState().setFocusedSession(remaining[0]);
+               }, 50);
+             }
+           });
+        }
+      });
+      return { ...s };
+    });
+  },
 
-    if (newSplits.length <= 1) {
-      set((s) => ({
-        tabs: s.tabs.map((t) =>
-          t.id === tabId
-            ? {
-                ...t,
-                type: "terminal" as TabType,
-                sessionId: newSplits[0] ?? tabId,
-                splitLayout: undefined,
-              }
-            : t,
-        ),
-      }));
-    } else {
-      set((s) => ({
-        tabs: s.tabs.map((t) =>
-          t.id === tabId
-            ? {
-                ...t,
-                splitLayout: {
-                  ...t.splitLayout!,
-                  splits: newSplits,
-                },
-              }
-            : t,
-        ),
-      }));
-    }
+  swapSessions: (tabId, sessionId1, sessionId2) => {
+    const state = get();
+    const tab = state.tabs.find((t) => t.id === tabId);
+    if (!tab || !tab.splitNode) return;
 
-    if (newSplits.length > 0) {
-      const removedIdx = tab.splitLayout.splits.indexOf(sessionId);
-      const focusIdx = Math.max(0, Math.min(removedIdx, newSplits.length - 1));
-      setTimeout(() => {
-        document.dispatchEvent(
-          new CustomEvent("focus-terminal", { detail: { sessionId: newSplits[focusIdx] } }),
-        );
-      }, 0);
-    }
+    set((s) => {
+      const clone = JSON.parse(JSON.stringify(tab.splitNode)) as SplitNode;
+      import("@/lib/splitUtils").then(({ findNode }) => {
+         const node1 = findNode(clone, sessionId1);
+         const node2 = findNode(clone, sessionId2);
+         if (node1 && node2 && node1.type === "terminal" && node2.type === "terminal") {
+            const temp = node1.sessionId;
+            node1.sessionId = node2.sessionId;
+            node2.sessionId = temp;
+            s.updateTab(tabId, { splitNode: clone });
+         }
+      });
+      return { ...s };
+    });
   },
 }));

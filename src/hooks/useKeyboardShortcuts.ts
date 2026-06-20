@@ -4,6 +4,7 @@ import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 import { matchShortcut, type ShortcutContext } from "@/lib/shortcuts";
 import { isPrefixActive, activatePrefix, deactivatePrefix } from "@/lib/prefixMode";
+import { getSessions } from "@/lib/splitUtils";
 
 function preventBrowserDefaults(e: KeyboardEvent) {
   if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma" || e.code === "KeyJ" || e.code === "KeyU")) {
@@ -72,8 +73,9 @@ export function useKeyboardShortcuts() {
         if (e.ctrlKey && e.shiftKey && (e.code === "ArrowLeft" || e.code === "ArrowRight")) {
           const tabState = useTabStore.getState();
           const activeTab = tabState.tabs.find((t) => t.id === tabState.activeTabId);
-          if (activeTab?.splitLayout && activeTab.splitLayout.splits.length > 1) {
-            const splits = activeTab.splitLayout.splits;
+          if (activeTab?.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (splits.length > 1) {
             const focusedId = useTerminalStore.getState().focusedSessionId;
             const idx = focusedId ? splits.indexOf(focusedId) : -1;
             if (e.code === "ArrowLeft") {
@@ -95,6 +97,38 @@ export function useKeyboardShortcuts() {
                 useTerminalStore.getState().setFocusedSession(nextSession);
                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: nextSession } }));
                 return;
+              }
+            }
+          }
+        }
+        }
+
+        // Ctrl+Alt+ArrowKeys to move/swap terminals
+        if (e.ctrlKey && e.altKey && !e.shiftKey) {
+          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.code)) {
+            const tabState = useTabStore.getState();
+            const activeTab = tabState.tabs.find((t) => t.id === tabState.activeTabId);
+            if (activeTab?.splitNode) {
+              const splits = getSessions(activeTab.splitNode);
+              if (splits.length > 1) {
+                const focusedId = useTerminalStore.getState().focusedSessionId;
+                const idx = focusedId ? splits.indexOf(focusedId) : -1;
+                if (idx !== -1) {
+                  let targetIdx = -1;
+                  if (e.code === "ArrowLeft" || e.code === "ArrowUp") {
+                    targetIdx = (idx - 1 + splits.length) % splits.length;
+                  } else {
+                    targetIdx = (idx + 1) % splits.length;
+                  }
+                  if (targetIdx !== idx) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    tabState.swapSessions(activeTab.id, focusedId!, splits[targetIdx]);
+                    // Focus the terminal we just moved to keep control
+                    document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: focusedId } }));
+                    return;
+                  }
+                }
               }
             }
           }
@@ -229,7 +263,7 @@ export function useKeyboardShortcuts() {
         let targetTabId: string | undefined | null;
         if (focusedId) {
           const tabWithFocus = tabs.find(
-            (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
+            (t) => t.sessionId === focusedId || (t.splitNode && getSessions(t.splitNode).includes(focusedId)),
           );
           targetTabId = tabWithFocus?.id;
         }
@@ -239,8 +273,9 @@ export function useKeyboardShortcuts() {
         const tab = tabs.find((t) => t.id === targetTabId);
         if (!tab || tab.pinned) break;
 
-        if (tab.type === "split" && tab.splitLayout && tab.splitLayout.splits.length > 1) {
-          if (focusedId && tab.splitLayout.splits.includes(focusedId)) {
+        if (tab.type === "split" && tab.splitNode) {
+          const splits = getSessions(tab.splitNode);
+          if (splits.length > 1 && focusedId && splits.includes(focusedId)) {
             tabState.closeSplit(targetTabId, focusedId);
             break;
           }
@@ -255,7 +290,7 @@ export function useKeyboardShortcuts() {
         let targetTabId: string | undefined | null;
         if (focusedId) {
           const tabWithFocus = tabs.find(
-            (t) => t.sessionId === focusedId || (t.splitLayout && t.splitLayout.splits.includes(focusedId)),
+            (t) => t.sessionId === focusedId || (t.splitNode && getSessions(t.splitNode).includes(focusedId)),
           );
           targetTabId = tabWithFocus?.id;
         }
@@ -289,16 +324,17 @@ export function useKeyboardShortcuts() {
           const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
           const focusedId = termState.focusedSessionId;
           let parentSessionId = activeTab?.sessionId;
-          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
-            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+          if (activeTab?.type === "split" && activeTab.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (focusedId && splits.includes(focusedId)) {
               parentSessionId = focusedId;
             } else {
-              parentSessionId = activeTab.splitLayout.splits[0];
+              parentSessionId = splits[0];
             }
           }
           const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
 
-          const newId = tabState.splitHorizontal(activeTabId);
+          const newId = tabState.splitHorizontal(activeTabId, focusedId || undefined);
           if (newId) {
             termState.addSession({
               id: newId,
@@ -322,16 +358,17 @@ export function useKeyboardShortcuts() {
           const activeTab = tabState.tabs.find((t) => t.id === activeTabId);
           const focusedId = termState.focusedSessionId;
           let parentSessionId = activeTab?.sessionId;
-          if (activeTab?.type === "split" && activeTab.splitLayout?.splits) {
-            if (focusedId && activeTab.splitLayout.splits.includes(focusedId)) {
+          if (activeTab?.type === "split" && activeTab.splitNode) {
+            const splits = getSessions(activeTab.splitNode);
+            if (focusedId && splits.includes(focusedId)) {
               parentSessionId = focusedId;
             } else {
-              parentSessionId = activeTab.splitLayout.splits[0];
+              parentSessionId = splits[0];
             }
           }
           const parentSession = parentSessionId ? termState.sessions.get(parentSessionId) : undefined;
 
-          const newId = tabState.splitVertical(activeTabId);
+          const newId = tabState.splitVertical(activeTabId, focusedId || undefined);
           if (newId) {
             termState.addSession({
               id: newId,
