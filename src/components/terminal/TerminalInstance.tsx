@@ -7,6 +7,8 @@ import { WebLinksAddon } from "@xterm/addon-web-links";
 import { useTerminalStore } from "@/stores/terminalStore";
 import { useConfigStore } from "@/stores/configStore";
 import { usePreviewStore } from "@/stores/previewStore";
+import { useHistoryStore } from "@/stores/historyStore";
+import { GhostTextOverlay } from "./GhostTextOverlay";
 import { getTheme } from "@/lib/themes";
 import { open } from "@tauri-apps/plugin-shell";
 
@@ -144,6 +146,12 @@ export function TerminalInstance({
 }: TerminalInstanceProps) {
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [currentInput, setCurrentInput] = useState("");
+  const [suggestion, setSuggestion] = useState("");
+  
+  // Create a ref to always access the latest values inside xterm event callbacks
+  const inputRef = useRef(currentInput);
+  const suggestionRef = useRef(suggestion);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const xtermRef = useRef<Terminal | null>(null);
@@ -155,6 +163,7 @@ export function TerminalInstance({
 
   const config = useConfigStore((s) => s.config);
   const { updateSession, removeSession } = useTerminalStore();
+  const { history, addCommand } = useHistoryStore();
   const theme = getTheme(config.theme.type);
 
   const spawnPTY = useCallback(
@@ -202,6 +211,9 @@ export function TerminalInstance({
   useEffect(() => {
     if (!terminalRef.current) return;
 
+    const userFont = config.terminal.fontFamily?.replace(/['"]/g, '').split(',')[0].trim() || 'JetBrains Mono';
+    const computedFontFamily = `"${userFont}", "Consolas", "Courier New", monospace`;
+
     const xterm = new Terminal({
       cols: 80,
       rows: 24,
@@ -209,7 +221,7 @@ export function TerminalInstance({
       cursorStyle: config.terminal.cursorStyle,
       cursorWidth: 2,
       fontSize: config.terminal.fontSize,
-      fontFamily: config.terminal.fontFamily,
+      fontFamily: computedFontFamily,
       lineHeight: config.terminal.lineHeight,
       scrollback: config.terminal.scrollback,
       allowTransparency: true,
@@ -308,9 +320,27 @@ export function TerminalInstance({
       // Copy on Ctrl+C if text is selected
       if (e.type === "keydown" && e.code === "KeyC" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
         if (xterm.hasSelection()) {
+          e.preventDefault();
           navigator.clipboard.writeText(xterm.getSelection()).catch(console.error);
           xterm.clearSelection();
           return false; // Prevent sending SIGINT to terminal
+        }
+      }
+
+      // Handle Ghost Text Tab completion
+      if (e.type === "keydown" && e.code === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const sugg = suggestionRef.current;
+        const input = inputRef.current;
+        if (sugg && sugg.startsWith(input) && sugg.length > input.length) {
+          e.preventDefault(); // Stop browser from moving focus to the next element
+          const remainder = sugg.slice(input.length);
+          ptyWrite(sessionId, remainder).catch(console.error);
+          
+          setCurrentInput(sugg);
+          inputRef.current = sugg;
+          setSuggestion("");
+          suggestionRef.current = "";
+          return false; // Prevent default tab completion from shell
         }
       }
       
@@ -320,6 +350,40 @@ export function TerminalInstance({
 
     // Input: JS -> PTY
     xterm.onData((data) => {
+      // Update local input tracker for ghost text
+      let nextInput = inputRef.current;
+      
+      if (data === '\r' || data === '\n') {
+        if (nextInput.trim()) {
+          useHistoryStore.getState().addCommand(nextInput);
+        }
+        nextInput = "";
+      } else if (data === '\x7F' || data === '\b') { // Backspace
+        nextInput = nextInput.slice(0, -1);
+      } else if (data === '\x1B[A' || data === '\x1B[B' || data === '\x1B[C' || data === '\x1B[D') {
+        // Arrow keys - clear suggestion to avoid desync
+        nextInput = "";
+      } else if (data === '\x03') { // Ctrl+C
+        nextInput = "";
+      } else if (!data.startsWith('\x1B')) {
+        // Normal printable characters
+        nextInput += data;
+      }
+
+      // Find match in history
+      let nextSuggestion = "";
+      if (nextInput.length > 0) {
+        const match = useHistoryStore.getState().history.find(h => h.startsWith(nextInput));
+        if (match) {
+          nextSuggestion = match;
+        }
+      }
+
+      setCurrentInput(nextInput);
+      inputRef.current = nextInput;
+      setSuggestion(nextSuggestion);
+      suggestionRef.current = nextSuggestion;
+
       ptyWrite(sessionId, data).catch((err) => {
         console.error("PTY write failed:", err);
       });
@@ -434,8 +498,12 @@ export function TerminalInstance({
   useEffect(() => {
     const xterm = xtermRef.current;
     if (!xterm) return;
+    
+    const userFont = config.terminal.fontFamily?.replace(/['"]/g, '').split(',')[0].trim() || 'JetBrains Mono';
+    const computedFontFamily = `"${userFont}", "Consolas", "Courier New", monospace`;
+
     xterm.options.fontSize = config.terminal.fontSize;
-    xterm.options.fontFamily = config.terminal.fontFamily;
+    xterm.options.fontFamily = computedFontFamily;
     xterm.options.lineHeight = config.terminal.lineHeight;
     xterm.options.cursorBlink = config.terminal.cursorBlink;
     xterm.options.cursorStyle = config.terminal.cursorStyle;
@@ -466,12 +534,18 @@ export function TerminalInstance({
     >
       <div
         ref={terminalRef}
-        className="w-full h-full"
+        className="w-full h-full relative"
         style={{
           background: theme.terminal.background ?? "#1e1e2e",
           opacity: config.theme.opacity,
         }}
-      />
+      >
+        <GhostTextOverlay 
+          xterm={xtermRef.current} 
+          suggestion={suggestion} 
+          inputPrefix={currentInput} 
+        />
+      </div>
       {showSearch && (
         <div className="absolute top-2 right-4 bg-surface0 border border-surface1 rounded shadow-lg px-2 py-1.5 flex items-center gap-1.5 z-10 text-xs anim-fade-in">
           <input

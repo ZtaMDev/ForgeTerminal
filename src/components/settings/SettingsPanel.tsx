@@ -14,7 +14,7 @@ type SettingItem = {
   section: string;
   id: string;
   label: string;
-  type: "text" | "number" | "select" | "toggle" | "action" | "shell";
+  type: "text" | "number" | "select" | "toggle" | "action" | "shell" | "font";
   value?: unknown;
   min?: number;
   max?: number;
@@ -40,9 +40,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const createItems = useCallback((): SettingItem[] => [
     { section: "Terminal", id: "defaultShell", label: "Default Shell", type: "shell" as const, value: config.terminal.defaultShell, options: ["powershell.exe", "cmd.exe", "bash.exe", "custom"], onChange: (v: unknown) => setTerminal({ defaultShell: v as string }) },
     { section: "Terminal", id: "linkBehavior", label: "Ctrl+Click Link Behavior", type: "select" as const, value: config.terminal.linkBehavior, options: ["preview", "browser"], onChange: (v: unknown) => setTerminal({ linkBehavior: v as "preview" | "browser" }) },
-    { section: "Terminal", id: "fontFamily", label: "Font Family", type: "text" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
+    { section: "Terminal", id: "fontFamily", label: "Font Family", type: "font" as const, value: config.terminal.fontFamily, onChange: (v: unknown) => setTerminal({ fontFamily: v as string }) },
     { section: "Terminal", id: "fontSize", label: "Font Size", type: "number" as const, value: config.terminal.fontSize, min: 6, max: 72, step: 1, onChange: (v: unknown) => setTerminal({ fontSize: v as number }) },
-    { section: "Terminal", id: "lineHeight", label: "Line Height", type: "number" as const, value: config.terminal.lineHeight, min: 0.5, max: 3, step: 0.1, onChange: (v: unknown) => setTerminal({ lineHeight: v as number }) },
     { section: "Terminal", id: "cursorStyle", label: "Cursor Style", type: "select" as const, value: config.terminal.cursorStyle, options: cursorOptions, onChange: (v: unknown) => setTerminal({ cursorStyle: v as "block" | "underline" | "bar" }) },
     { section: "Terminal", id: "cursorBlink", label: "Cursor Blink", type: "toggle" as const, value: config.terminal.cursorBlink, onChange: (v: unknown) => setTerminal({ cursorBlink: v as boolean }) },
     { section: "Terminal", id: "bellStyle", label: "Bell Style", type: "select" as const, value: config.terminal.bellStyle, options: bellOptions, onChange: (v: unknown) => setTerminal({ bellStyle: v as "none" | "sound" | "visual" }) },
@@ -112,12 +111,12 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       const currentItems = itemsRef.current;
       const currentIdx = selectedIndexRef.current;
 
-      // If editing a text input inside the panel, let all keys pass through except Escape
-      const activeInput = document.activeElement?.tagName === 'INPUT' && overlayRef.current?.contains(document.activeElement);
-      if (activeInput) {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') return;
+      // If editing a text input or select inside the panel, let all keys pass through except Escape
+      const activeElement = document.activeElement;
+      const isEditing = (activeElement?.tagName === 'INPUT' || activeElement?.tagName === 'SELECT') && overlayRef.current?.contains(activeElement);
+      if (isEditing) {
         if (e.key === 'Escape') {
-          (document.activeElement as HTMLElement).blur();
+          (activeElement as HTMLElement).blur();
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -145,26 +144,23 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             if (item.type === "toggle") {
               item.onChange?.(!item.value);
             } else if (item.type === "select") {
-              const opts = item.options!;
-              const idx = opts.indexOf(item.value as string);
-              item.onChange?.(opts[(idx + 1) % opts.length]);
+              const sel = listRef.current?.querySelectorAll('[role="option"]')[currentIdx];
+              (sel?.querySelector('select') as HTMLElement)?.focus();
             } else if (item.type === "action") {
               item.action?.();
             } else if (item.type === "text") {
-              const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
+              const sel = listRef.current?.querySelectorAll('[role="option"]')[currentIdx];
               (sel?.querySelector('input') as HTMLElement)?.focus();
-            } else if (item.type === "shell") {
-              const opts = item.options!;
+            } else if (item.type === "shell" || item.type === "font") {
+              const opts = item.options || ["JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas"];
               let currentVal = item.value as string;
               if (!opts.includes(currentVal)) currentVal = "custom";
               if (currentVal === "custom") {
-                const sel = listRef.current?.querySelector('[role="option"][aria-selected="true"]');
+                const sel = listRef.current?.querySelectorAll('[role="option"]')[currentIdx];
                 (sel?.querySelector('input') as HTMLElement)?.focus();
               } else {
-                const idx = opts.indexOf(currentVal);
-                const nextVal = opts[(idx + 1) % opts.length];
-                if (nextVal === "custom") item.onChange?.("");
-                else item.onChange?.(nextVal);
+                const sel = listRef.current?.querySelectorAll('[role="option"]')[currentIdx];
+                (sel?.querySelector('select') as HTMLElement)?.focus();
               }
             }
             break;
@@ -172,13 +168,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           case "left": {
             const item = currentItems[currentIdx];
             if (!item) break;
-            if (item.type === "select" || item.type === "shell") {
-              const opts = item.options!;
+            if (item.type === "select" || item.type === "shell" || item.type === "font") {
+              const opts = item.options || ["JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas"];
               let currentVal = item.value as string;
-              if (item.type === "shell" && !opts.includes(currentVal)) currentVal = "custom";
+              if ((item.type === "shell" || item.type === "font") && !opts.includes(currentVal)) currentVal = "custom";
               const idx = opts.indexOf(currentVal);
               const nextVal = opts[(idx - 1 + opts.length) % opts.length];
-              if (item.type === "shell" && nextVal === "custom") item.onChange?.("");
+              if ((item.type === "shell" || item.type === "font") && nextVal === "custom") item.onChange?.("");
               else item.onChange?.(nextVal);
             } else if (item.type === "number") {
               item.onChange?.(Number(Math.max(item.min ?? 0, (item.value as number) - (item.step ?? 1)).toFixed(2)));
@@ -188,13 +184,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           case "right": {
             const item = currentItems[currentIdx];
             if (!item) break;
-            if (item.type === "select" || item.type === "shell") {
-              const opts = item.options!;
+            if (item.type === "select" || item.type === "shell" || item.type === "font") {
+              const opts = item.options || ["JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas"];
               let currentVal = item.value as string;
-              if (item.type === "shell" && !opts.includes(currentVal)) currentVal = "custom";
+              if ((item.type === "shell" || item.type === "font") && !opts.includes(currentVal)) currentVal = "custom";
               const idx = opts.indexOf(currentVal);
               const nextVal = opts[(idx + 1) % opts.length];
-              if (item.type === "shell" && nextVal === "custom") item.onChange?.("");
+              if ((item.type === "shell" || item.type === "font") && nextVal === "custom") item.onChange?.("");
               else item.onChange?.(nextVal);
             } else if (item.type === "number") {
               item.onChange?.(Number(Math.min(item.max ?? 999, (item.value as number) + (item.step ?? 1)).toFixed(2)));
@@ -272,14 +268,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                       : "border-transparent text-fg-alt hover:bg-surface1/50 hover:border-l-2 hover:border-surface1"
                   }`}
                   style={{ transitionDuration: "var(--anim-duration, 200ms)" }}
-                  onClick={() => {
+                  onClick={(e) => {
                     setSelectedIndex(idx);
                     if (item.type === "toggle") {
                       item.onChange?.(!item.value);
                     } else if (item.type === "select") {
-                      const opts = item.options!;
-                      const i = opts.indexOf(item.value as string);
-                      item.onChange?.(opts[(i + 1) % opts.length]);
+                      const sel = e.currentTarget;
+                      (sel.querySelector('select') as HTMLElement)?.focus();
                     }
                   }}
                 >
@@ -294,9 +289,17 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   )}
 
                   {item.type === "select" && (
-                    <div className="flex items-center gap-1 text-xs text-fg-subtle bg-surface1 px-2 py-1 rounded flex-shrink-0">
-                      {item.value as string}
-                      <ChevronRight size={12} className="opacity-50" />
+                    <div className="flex items-center gap-1 text-xs text-fg-subtle bg-surface1 px-2 py-1 rounded flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        className="bg-transparent outline-none text-fg-subtle appearance-none pr-4 w-full"
+                        value={item.value as string}
+                        onChange={(e) => item.onChange?.(e.target.value)}
+                      >
+                        {item.options?.map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                      <ChevronRight size={12} className="opacity-50 absolute right-6 pointer-events-none" />
                     </div>
                   )}
 
@@ -360,6 +363,36 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                           className="w-24 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none"
                           value={item.value as string}
                           placeholder="path/to/shell"
+                          onChange={(e) => item.onChange?.(e.target.value)}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {item.type === "font" && (
+                    <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        className="w-36 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none font-mono"
+                        value={["JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas"].includes((item.value as string)?.replace(/['"]/g, '').split(',')[0].trim()) ? (item.value as string)?.replace(/['"]/g, '').split(',')[0].trim() : "custom"}
+                        onChange={(e) => {
+                          if (e.target.value === "custom") {
+                            item.onChange?.("");
+                          } else {
+                            item.onChange?.(e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="JetBrains Mono">JetBrains Mono</option>
+                        <option value="Fira Code">Fira Code</option>
+                        <option value="Cascadia Code">Cascadia Code</option>
+                        <option value="Consolas">Consolas</option>
+                        <option value="custom">Custom...</option>
+                      </select>
+                      {!["JetBrains Mono", "Fira Code", "Cascadia Code", "Consolas"].includes((item.value as string)?.replace(/['"]/g, '').split(',')[0].trim()) && (
+                        <input
+                          className="w-28 text-xs bg-surface0 text-fg px-2 py-1 rounded border border-surface1 focus:border-accent outline-none font-mono"
+                          value={item.value as string}
+                          placeholder="Font name..."
                           onChange={(e) => item.onChange?.(e.target.value)}
                         />
                       )}
