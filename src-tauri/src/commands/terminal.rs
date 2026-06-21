@@ -30,6 +30,13 @@ struct PtyErrorPayload {
 }
 
 #[tauri::command]
+pub fn get_current_dir() -> String {
+    std::env::current_dir()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| String::new())
+}
+
+#[tauri::command]
 pub fn pty_spawn(
     app: tauri::AppHandle,
     state: State<'_, AppState>,

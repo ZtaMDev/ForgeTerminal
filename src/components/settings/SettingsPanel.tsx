@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useConfigStore } from "@/stores/configStore";
+import { useHistoryStore } from "@/stores/historyStore";
 import { X, Minus, Plus, ChevronRight } from "lucide-react";
 
 interface SettingsPanelProps {
@@ -49,7 +50,9 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Terminal", id: "rightClickPaste", label: "Right Click Paste", type: "toggle" as const, value: config.terminal.rightClickPaste, onChange: (v: unknown) => setTerminal({ rightClickPaste: v as boolean }) },
     { section: "Terminal", id: "scrollback", label: "Scrollback Lines", type: "number" as const, value: config.terminal.scrollback, min: 1000, max: 999999, step: 1000, onChange: (v: unknown) => setTerminal({ scrollback: v as number }) },
     { section: "Session", id: "sessionRestore", label: "Session Restoring", type: "toggle" as const, value: config.session.sessionRestore, onChange: (v: unknown) => setSession({ sessionRestore: v as boolean }) },
+    { section: "Session", id: "ghostTextEnabled", label: "Command Suggestions (Ghost Text)", type: "toggle" as const, value: config.terminal.ghostTextEnabled, onChange: (v: unknown) => setTerminal({ ghostTextEnabled: v as boolean }) },
     { section: "Session", id: "clearPastSessions", label: "Clear Past Sessions", type: "action" as const, action: () => { clearPastPaths(); } },
+    { section: "Session", id: "clearCommandHistory", label: "Clear Command History", type: "action" as const, action: () => { useHistoryStore.getState().clearHistory(); } },
     { section: "Session", id: "showTutorial", label: "Show Tutorial", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("show-tutorial")); } },
     { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
     { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },

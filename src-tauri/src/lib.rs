@@ -24,6 +24,7 @@ pub fn run() {
         }))
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
+            commands::terminal::get_current_dir,
             commands::terminal::pty_spawn,
             commands::terminal::pty_write,
             commands::terminal::pty_resize,

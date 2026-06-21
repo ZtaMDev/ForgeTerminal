@@ -25,7 +25,6 @@
 - **Drag & Drop / Keyboard Reordering:** Grab a terminal and drop it on the edges of another to split it, or in the center to swap places. Use `Ctrl+Alt+ArrowKeys` to instantly swap terminal positions without taking your hands off the keyboard.
 - **Intelligent Focus Tracking:** Forge remembers your exact active terminal state. Whether you open the Settings panel, trigger the Command Palette, or change tabs, the focus instantly snaps back exactly where you left it so you never miss a keystroke.
 - **Web Preview Panel:** Browse the web or read documentation side-by-side with your terminal. Toggle it with `Ctrl+Shift+Y`, move it to the left or right, and automatically route `Ctrl+Click` links from the terminal into the previewer.
-- **File Viewer Tabs:** Native support for viewing images and raw files inside their own tabs without leaving the application.
 - **Past Sessions Memory:** Access your past terminal paths and quickly launch new sessions exactly where you need them (`Ctrl+Shift+O`).
 - **Passthrough Mode & Dynamic Command Key:** Toggle keyboard passthrough (`Ctrl+<cmd>`) to send shortcuts directly to terminal applications (like vim/nano/tmux) without triggering Forge's UI commands. The core `<cmd>` key (default `` ` ``) is fully customizable in the settings, instantly adapting all global shortcuts to fit your exact workflow.
 - **Beautiful & Customizable:** Powered by the gorgeous **Catppuccin** color palette. Customize your default shell, font, cursor style, scrollback limits, status bar visibility, animations, and more via a rich built-in settings panel.
@@ -75,8 +74,8 @@
 
 | Shortcut                | Action                 |
 | ----------------------- | ---------------------- |
-| `Ctrl + Shift + C`      | Copy Selection         |
-| `Ctrl + Shift + V`      | Paste                  |
+| `Ctrl + C`              | Copy Selection         |
+| `Ctrl + V`              | Paste                  |
 | `Ctrl + Shift + F`      | Search within Terminal |
 | `Ctrl + =` / `Ctrl + -` | Zoom In / Out          |
 

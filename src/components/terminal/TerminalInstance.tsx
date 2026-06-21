@@ -327,8 +327,17 @@ export function TerminalInstance({
         }
       }
 
+      // Paste on Ctrl+V or Ctrl+Shift+V
+      if (e.type === "keydown" && e.code === "KeyV" && e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => {
+          ptyWrite(sessionId, text).catch(console.error);
+        });
+        return false;
+      }
+
       // Handle Ghost Text Tab completion
-      if (e.type === "keydown" && e.code === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      if (config.terminal.ghostTextEnabled && e.type === "keydown" && e.code === "Tab" && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         const sugg = suggestionRef.current;
         const input = inputRef.current;
         if (sugg && sugg.startsWith(input) && sugg.length > input.length) {
@@ -350,47 +359,45 @@ export function TerminalInstance({
 
     // Input: JS -> PTY
     xterm.onData((data) => {
-      // Update local input tracker for ghost text
-      let nextInput = inputRef.current;
-      
       if (data === '\r' || data === '\n') {
-        if (nextInput.trim()) {
-          useHistoryStore.getState().addCommand(nextInput);
-        }
-        nextInput = "";
-      } else if (data === '\x7F' || data === '\b') { // Backspace
-        nextInput = nextInput.slice(0, -1);
-      } else if (data === '\x1B[A' || data === '\x1B[B' || data === '\x1B[C' || data === '\x1B[D') {
-        // Arrow keys - clear suggestion to avoid desync
-        nextInput = "";
-      } else if (data === '\x03') { // Ctrl+C
-        nextInput = "";
-      } else if (!data.startsWith('\x1B')) {
-        // Normal printable characters
-        nextInput += data;
-      }
-
-      // Find match in history
-      let nextSuggestion = "";
-      if (nextInput.length > 0) {
-        const match = useHistoryStore.getState().history.find(h => h.startsWith(nextInput));
-        if (match) {
-          nextSuggestion = match;
+        const line = xterm.buffer.active.getLine(xterm.buffer.active.cursorY)?.translateToString(true) || "";
+        const promptMatch = line.match(/^(?:.*?[>#\$❯%])\s+(.*)$/);
+        const command = promptMatch ? promptMatch[1].trim() : "";
+        if (command) {
+          useHistoryStore.getState().addCommand(command);
         }
       }
-
-      setCurrentInput(nextInput);
-      inputRef.current = nextInput;
-      setSuggestion(nextSuggestion);
-      suggestionRef.current = nextSuggestion;
-
       ptyWrite(sessionId, data).catch((err) => {
         console.error("PTY write failed:", err);
       });
     });
 
+    const cursorListener = xterm.onCursorMove(() => {
+      const buffer = xterm.buffer.active;
+      const line = buffer.getLine(buffer.cursorY)?.translateToString(true) || "";
+      const lineToCursor = line.slice(0, buffer.cursorX);
+      // A lot of shit related to regex(BURN REGEX what a headache)
+      const promptMatch = lineToCursor.match(/^(?:.*?[>#\$❯%])\s+(.*)$/);
+      const input = promptMatch ? promptMatch[1] : "";
+      
+      setCurrentInput(input);
+      inputRef.current = input;
+
+      if (config.terminal.ghostTextEnabled && input.trim().length > 0) {
+        const match = useHistoryStore.getState().history.find(h => h.startsWith(input));
+        if (match) {
+          setSuggestion(match);
+          suggestionRef.current = match;
+          return;
+        }
+      }
+      
+      setSuggestion("");
+      suggestionRef.current = "";
+    });
+
     // Resize: PTY resize on xterm resize
-    xterm.onResize(({ cols, rows }) => {
+    const resizeListener = xterm.onResize(({ cols, rows }) => {
       ptyResize(sessionId, cols, rows).catch(console.error);
     });
 
@@ -426,6 +433,16 @@ export function TerminalInstance({
       }
     };
     termElem?.addEventListener("mouseup", handleMouseUp);
+
+    const handleContextMenu = (e: MouseEvent) => {
+      if (useConfigStore.getState().config.terminal.rightClickPaste) {
+        e.preventDefault();
+        navigator.clipboard.readText().then((text) => {
+          ptyWrite(sessionId, text).catch(console.error);
+        });
+      }
+    };
+    termElem?.addEventListener("contextmenu", handleContextMenu);
 
     // Listen for external focus requests (e.g. from Ctrl+` shortcut)
     const handleFocusRequest = (e: Event) => {
@@ -482,9 +499,12 @@ export function TerminalInstance({
     return () => {
       observer.disconnect();
       unlistenRef.current.forEach((fn) => fn());
+      resizeListener.dispose();
+      cursorListener.dispose();
       termElem?.removeEventListener("focus", handleFocus, true);
       termElem?.removeEventListener("blur", handleBlur, true);
       termElem?.removeEventListener("mouseup", handleMouseUp);
+      termElem?.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("focus-terminal", handleFocusRequest);
       document.removeEventListener("blur-terminal", handleBlurRequest);
       document.removeEventListener("focus-restore", handleFocusRestore);
@@ -540,11 +560,13 @@ export function TerminalInstance({
           opacity: config.theme.opacity,
         }}
       >
-        <GhostTextOverlay 
-          xterm={xtermRef.current} 
-          suggestion={suggestion} 
-          inputPrefix={currentInput} 
-        />
+        {config.terminal.ghostTextEnabled && (
+          <GhostTextOverlay 
+            xterm={xtermRef.current} 
+            suggestion={suggestion} 
+            inputPrefix={currentInput} 
+          />
+        )}
       </div>
       {showSearch && (
         <div className="absolute top-2 right-4 bg-surface0 border border-surface1 rounded shadow-lg px-2 py-1.5 flex items-center gap-1.5 z-10 text-xs anim-fade-in">

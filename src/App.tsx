@@ -7,7 +7,7 @@ import { loadFromStorage, saveToStorage } from "@/stores/tabStore";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Loader2, Terminal } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { getProcessArgs } from "@/lib/ipc";
+import { getProcessArgs, getProcessCwd } from "@/lib/ipc";
 import { getSessions } from "@/lib/splitUtils";
 import { TerminalDragOverlay } from "@/components/terminal/TerminalDragOverlay";
 
@@ -54,6 +54,8 @@ export default function App() {
         }
       }
 
+      let hasOpenedSession = false;
+
       // Check CLI args
       try {
         const args = await getProcessArgs();
@@ -61,10 +63,44 @@ export default function App() {
           const pathArg = args.find((a: string) => !a.startsWith("-") && !a.endsWith("exe") && !a.endsWith("forge"));
           if (pathArg) {
             openSessionAt(pathArg);
+            hasOpenedSession = true;
           }
         }
       } catch (e) {
         // Failed to get process args
+      }
+
+      // If no session was opened from args, check CWD (for when launched from Explorer)
+      if (!hasOpenedSession) {
+        try {
+          const cwd = await getProcessCwd();
+          const isAppDir = cwd && (
+            cwd.toLowerCase().includes("appdata\\local\\forge") || 
+            cwd.toLowerCase().includes("appdata/local/forge") ||
+            cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
+            cwd.toLowerCase().includes("appdata/roaming/forge")
+          );
+
+          if (cwd && cwd.trim() !== "" && !cwd.toLowerCase().includes("system32") && cwd !== "." && !isAppDir) {
+            // Only open if there are NO tabs restored, OR if we launched from a specific folder.
+            // If they restored tabs, but the cwd is a specific project folder, they probably want a new tab there!
+            // But wait, if they launch from shortcut, CWD is usually home dir.
+            // Let's assume if it's not empty, system32, or ".", it's worth opening!
+            // We'll open it if no tabs exist, OR if it's a specific folder (not user profile).
+            const isHomeDir = /^[a-zA-Z]:\/users\/[^\/]+\/?$/.test(cwd.toLowerCase().replace(/\\/g, "/")) || cwd === "%USERPROFILE%" || cwd === "~";
+            if (useTabStore.getState().tabs.length === 0 || !isHomeDir) {
+               openSessionAt(cwd);
+               hasOpenedSession = true;
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Fallback: if no session is open at all (tabs length is 0), open a default session at home directory
+      if (useTabStore.getState().tabs.length === 0) {
+        openSessionAt("");
       }
 
       setShowLoader(false);
@@ -152,10 +188,22 @@ export default function App() {
         if (pathArg) {
           openSessionAt(pathArg);
         } else if (payload.cwd) {
-          openSessionAt(payload.cwd);
+          const isAppDir = payload.cwd.toLowerCase().includes("appdata\\local\\forge") || 
+                           payload.cwd.toLowerCase().includes("appdata/local/forge") ||
+                           payload.cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
+                           payload.cwd.toLowerCase().includes("appdata/roaming/forge");
+          if (!isAppDir) {
+            openSessionAt(payload.cwd);
+          }
         }
       } else if (payload && payload.cwd) {
-        openSessionAt(payload.cwd);
+        const isAppDir = payload.cwd.toLowerCase().includes("appdata\\local\\forge") || 
+                         payload.cwd.toLowerCase().includes("appdata/local/forge") ||
+                         payload.cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
+                         payload.cwd.toLowerCase().includes("appdata/roaming/forge");
+        if (!isAppDir) {
+          openSessionAt(payload.cwd);
+        }
       }
     });
 

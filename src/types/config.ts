@@ -22,6 +22,7 @@ export interface TerminalConfig {
   linkBehavior: "preview" | "browser";
   environment: Record<string, string>;
   args: string[];
+  ghostTextEnabled: boolean;
 }
 
 export interface LayoutConfig {

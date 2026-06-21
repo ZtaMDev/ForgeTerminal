@@ -90,8 +90,6 @@ export function GhostTextOverlay({ xterm, suggestion, inputPrefix }: GhostTextOv
         left: startX * finalWidth + offset.left,
         top: (coords ? coords.y * finalHeight : 0) + offset.top,
         height: `${finalHeight}px`,
-        display: "flex",
-        alignItems: "center",
         fontFamily: computedFontFamily,
         fontSize: `${config.terminal.fontSize}px`,
         lineHeight: `${finalHeight}px`,

@@ -34,6 +34,7 @@ const defaultConfig: ForgeConfig = {
     linkBehavior: "preview",
     environment: {},
     args: [],
+    ghostTextEnabled: true,
   },
   layout: {
     tabPosition: "top",
