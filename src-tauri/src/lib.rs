@@ -24,6 +24,9 @@ pub fn run() {
         }))
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
+            commands::contextmenu::install_context_menu,
+            commands::contextmenu::uninstall_context_menu,
+            commands::contextmenu::is_context_menu_installed,
             commands::terminal::get_current_dir,
             commands::terminal::pty_spawn,
             commands::terminal::pty_write,

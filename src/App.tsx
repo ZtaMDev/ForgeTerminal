@@ -11,6 +11,58 @@ import { getProcessArgs, getProcessCwd } from "@/lib/ipc";
 import { getSessions } from "@/lib/splitUtils";
 import { TerminalDragOverlay } from "@/components/terminal/TerminalDragOverlay";
 
+function resolvePathFromArgs(args: string[]): string | null {
+  if (!args || args.length < 2) return null;
+
+  // --cwd <path> flag
+  const cwdIdx = args.indexOf("--cwd");
+  if (cwdIdx !== -1 && cwdIdx + 1 < args.length) {
+    return args[cwdIdx + 1];
+  }
+
+  // args[1] = first positional arg = context menu %V / %1 (GitPop pattern)
+  const first = args[1].replace(/^"|"$/g, "");
+  if (
+    first &&
+    !first.startsWith("-") &&
+    !first.toLowerCase().endsWith(".exe") &&
+    /^[a-zA-Z]:\\/.test(first)
+  ) {
+    return first;
+  }
+
+  // Any other argument that looks like a filesystem path
+  for (const a of args.slice(1)) {
+    if (a.startsWith("-")) continue;
+    const lower = a.toLowerCase();
+    if (lower.endsWith(".exe") || lower.endsWith(".forge") || lower.endsWith(".dll")) continue;
+    if (/^[a-zA-Z]:\\/.test(a) || /^[a-zA-Z]:\//.test(a) || a.startsWith("/") || a.startsWith("\\")) {
+      return a;
+    }
+  }
+
+  return null;
+}
+
+const APP_DIR_PATTERNS = [
+  "appdata\\local\\forge",
+  "appdata/local/forge",
+  "appdata\\roaming\\forge",
+  "appdata/roaming/forge",
+  "program files\\forge",
+  "program files (x86)\\forge",
+  "programs\\forge",
+];
+
+function isValidCwd(cwd: string | null | undefined): boolean {
+  if (!cwd || cwd.trim() === "") return false;
+  const lower = cwd.toLowerCase();
+  if (lower.includes("system32")) return false;
+  if (lower === ".") return false;
+  if (APP_DIR_PATTERNS.some((p) => lower.includes(p))) return false;
+  return true;
+}
+
 export default function App() {
   const { loadConfig, loaded, config } = useConfigStore();
   const [showLoader, setShowLoader] = useState(true);
@@ -54,53 +106,23 @@ export default function App() {
         }
       }
 
-      let hasOpenedSession = false;
-
-      // Check CLI args
-      try {
-        const args = await getProcessArgs();
-        if (args && args.length > 1) {
-          const pathArg = args.find((a: string) => !a.startsWith("-") && !a.endsWith("exe") && !a.endsWith("forge"));
-          if (pathArg) {
-            openSessionAt(pathArg);
-            hasOpenedSession = true;
-          }
-        }
-      } catch (e) {
-        // Failed to get process args
-      }
-
-      // If no session was opened from args, check CWD (for when launched from Explorer)
-      if (!hasOpenedSession) {
+      const pathFromArgs = resolvePathFromArgs(await getProcessArgs());
+      if (pathFromArgs) {
+        openSessionAt(pathFromArgs);
+      } else {
+        // Check CWD (for when launched from Explorer address bar or with CWD set)
         try {
           const cwd = await getProcessCwd();
-          const isAppDir = cwd && (
-            cwd.toLowerCase().includes("appdata\\local\\forge") || 
-            cwd.toLowerCase().includes("appdata/local/forge") ||
-            cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
-            cwd.toLowerCase().includes("appdata/roaming/forge")
-          );
-
-          if (cwd && cwd.trim() !== "" && !cwd.toLowerCase().includes("system32") && cwd !== "." && !isAppDir) {
-            // Only open if there are NO tabs restored, OR if we launched from a specific folder.
-            // If they restored tabs, but the cwd is a specific project folder, they probably want a new tab there!
-            // But wait, if they launch from shortcut, CWD is usually home dir.
-            // Let's assume if it's not empty, system32, or ".", it's worth opening!
-            // We'll open it if no tabs exist, OR if it's a specific folder (not user profile).
-            const isHomeDir = /^[a-zA-Z]:\/users\/[^\/]+\/?$/.test(cwd.toLowerCase().replace(/\\/g, "/")) || cwd === "%USERPROFILE%" || cwd === "~";
-            if (useTabStore.getState().tabs.length === 0 || !isHomeDir) {
-               openSessionAt(cwd);
-               hasOpenedSession = true;
-            }
+          if (isValidCwd(cwd)) {
+            openSessionAt(cwd);
+          } else if (useTabStore.getState().tabs.length === 0) {
+            openSessionAt("");
           }
-        } catch (e) {
-          // Ignore
+        } catch {
+          if (useTabStore.getState().tabs.length === 0) {
+            openSessionAt("");
+          }
         }
-      }
-
-      // Fallback: if no session is open at all (tabs length is 0), open a default session at home directory
-      if (useTabStore.getState().tabs.length === 0) {
-        openSessionAt("");
       }
 
       setShowLoader(false);
@@ -181,29 +203,11 @@ export default function App() {
 
     const unlisten = listen("new-instance", (event) => {
       const payload = event.payload as any;
-      if (payload && payload.args && payload.args.length > 1) {
-        // Depending on how args are passed, path is usually the last or specific one
-        // Let's assume the first non-flag argument after the executable
-        const pathArg = payload.args.find((a: string) => !a.startsWith("-") && !a.endsWith("exe") && !a.endsWith("forge"));
-        if (pathArg) {
-          openSessionAt(pathArg);
-        } else if (payload.cwd) {
-          const isAppDir = payload.cwd.toLowerCase().includes("appdata\\local\\forge") || 
-                           payload.cwd.toLowerCase().includes("appdata/local/forge") ||
-                           payload.cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
-                           payload.cwd.toLowerCase().includes("appdata/roaming/forge");
-          if (!isAppDir) {
-            openSessionAt(payload.cwd);
-          }
-        }
-      } else if (payload && payload.cwd) {
-        const isAppDir = payload.cwd.toLowerCase().includes("appdata\\local\\forge") || 
-                         payload.cwd.toLowerCase().includes("appdata/local/forge") ||
-                         payload.cwd.toLowerCase().includes("appdata\\roaming\\forge") ||
-                         payload.cwd.toLowerCase().includes("appdata/roaming/forge");
-        if (!isAppDir) {
-          openSessionAt(payload.cwd);
-        }
+      const path = resolvePathFromArgs(payload?.args);
+      if (path) {
+        openSessionAt(path);
+      } else if (payload?.cwd && isValidCwd(payload.cwd)) {
+        openSessionAt(payload.cwd);
       }
     });
 

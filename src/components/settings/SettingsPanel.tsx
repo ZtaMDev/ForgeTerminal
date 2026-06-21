@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useConfigStore } from "@/stores/configStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { X, Minus, Plus, ChevronRight } from "lucide-react";
+import { installContextMenu, uninstallContextMenu, isContextMenuInstalled } from "@/lib/ipc";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -30,6 +31,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
   const { setTerminal, setSession, setLayout, setTheme, setShortcuts, setDeveloper, resetConfig, clearPastPaths } = useConfigStore();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [contextMenuInstalled, setContextMenuInstalled] = useState(false);
+  const [cmInstalling, setCmInstalling] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const selectedIndexRef = useRef(0);
@@ -54,6 +57,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     { section: "Session", id: "clearPastSessions", label: "Clear Past Sessions", type: "action" as const, action: () => { clearPastPaths(); } },
     { section: "Session", id: "clearCommandHistory", label: "Clear Command History", type: "action" as const, action: () => { useHistoryStore.getState().clearHistory(); } },
     { section: "Session", id: "showTutorial", label: "Show Tutorial", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("show-tutorial")); } },
+    { section: "Session", id: contextMenuInstalled ? "uninstallContextMenu" : "installContextMenu", label: contextMenuInstalled ? "Uninstall Context Menu" : "Install Context Menu", type: "action" as const, action: async () => { if (cmInstalling) return; setCmInstalling(true); try { if (contextMenuInstalled) { await uninstallContextMenu(); setContextMenuInstalled(false); } else { await installContextMenu(); setContextMenuInstalled(true); } } catch {} setCmInstalling(false); } },
     { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
     { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },
     { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },
@@ -64,7 +68,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       { section: "Developer", id: "clearTutorial", label: "Reset Tutorial (show again)", type: "action" as const, action: () => { localStorage.removeItem("forge-tutorial-shown"); document.dispatchEvent(new CustomEvent("clear-tutorial")); } },
       { section: "Developer", id: "resetConfig", label: "Restore All Defaults", type: "action" as const, action: () => { resetConfig(); } },
     ] : []),
-  ], [config, setTerminal, setSession, setLayout, setTheme, setShortcuts, setDeveloper, resetConfig]);
+  ], [config, setTerminal, setSession, setLayout, setTheme, setShortcuts, setDeveloper, resetConfig, contextMenuInstalled, cmInstalling]);
 
   const items = useMemo(createItems, [config, setTerminal, setSession, setLayout, setTheme, setShortcuts, setDeveloper, resetConfig, createItems]);
 
@@ -82,6 +86,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
       if (!document.querySelector('[data-tutorial="true"]')) {
         requestAnimationFrame(() => overlayRef.current?.focus());
       }
+      isContextMenuInstalled().then(setContextMenuInstalled).catch(() => {});
     } else if (!isOpen && wasOpen && mounted) {
       exitTimerRef.current = setTimeout(() => {
         setMounted(false);

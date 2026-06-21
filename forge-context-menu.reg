@@ -1,0 +1,17 @@
+Windows Registry Editor Version 5.00
+
+; Open Forge Terminal in the current directory (background right-click)
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ForgeTerminal]
+@="Open Forge Terminal Here"
+"Icon"="\"REPLACE_WITH_FULL_PATH_TO\\forge.exe\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\ForgeTerminal\command]
+@="\"REPLACE_WITH_FULL_PATH_TO\\forge.exe\" \"%V\""
+
+; Open Forge Terminal in a specific folder (folder right-click)
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\ForgeTerminal]
+@="Open Forge Terminal Here"
+"Icon"="\"REPLACE_WITH_FULL_PATH_TO\\forge.exe\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\shell\ForgeTerminal\command]
+@="\"REPLACE_WITH_FULL_PATH_TO\\forge.exe\" \"%1\""

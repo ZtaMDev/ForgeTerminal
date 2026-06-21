@@ -115,6 +115,18 @@ export const getProcessCwd = async (): Promise<string> => {
   return await invoke("get_current_dir");
 };
 
+export const installContextMenu = async (): Promise<void> => {
+  return invoke("install_context_menu");
+};
+
+export const uninstallContextMenu = async (): Promise<void> => {
+  return invoke("uninstall_context_menu");
+};
+
+export const isContextMenuInstalled = async (): Promise<boolean> => {
+  return invoke("is_context_menu_installed");
+};
+
 export async function windowStartDrag(): Promise<void> {
   return invoke("window_start_drag");
 }

@@ -31,6 +31,38 @@ struct PtyErrorPayload {
 
 #[tauri::command]
 pub fn get_current_dir() -> String {
+    let args: Vec<String> = std::env::args().collect();
+
+    // 1. Check for --cwd <path> flag
+    if let Some(pos) = args.iter().position(|a| a == "--cwd") {
+        if let Some(path) = args.get(pos + 1) {
+            let p = std::path::Path::new(path);
+            if p.exists() && p.is_dir() {
+                return path.clone();
+            }
+        }
+    }
+
+    // 2. Check args[1] as a directory path (context menu %V / %1 = GitPop pattern)
+    if args.len() > 1 {
+        let path = args[1].trim().trim_matches('"');
+        if !path.is_empty() {
+            let p = std::path::Path::new(path);
+            if p.exists() && p.is_dir() {
+                return path.to_string();
+            }
+        }
+    }
+
+    // 3. Check any other argument that looks like a directory path
+    for arg in &args {
+        let p = std::path::Path::new(arg);
+        if p.exists() && p.is_dir() {
+            return arg.clone();
+        }
+    }
+
+    // 4. Fallback to process CWD
     std::env::current_dir()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| String::new())
