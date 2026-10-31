@@ -47,7 +47,7 @@ async function fetchLatestRelease() {
     if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
 
     const data = await res.json();
-    const version = data.tag_name || data.name || "0.1.0";
+    const version = data.tag_name || data.name || "0.2.0";
     const assets = data.assets || [];
 
     if (versionEl) versionEl.textContent = version;
