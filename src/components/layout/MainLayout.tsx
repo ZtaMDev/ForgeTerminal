@@ -6,6 +6,7 @@ import { StatusBar } from "@/components/statusbar/StatusBar";
 import { TerminalTab } from "@/components/terminal/TerminalTab";
 import { CommandPalette } from "@/components/common/CommandPalette";
 import { SettingsPanel } from "@/components/settings/SettingsPanel";
+import { KeyboardShortcutsEditor } from "@/components/settings/KeyboardShortcutsEditor";
 import { RenameDialog } from "@/components/common/RenameDialog";
 import { PathInputDialog } from "@/components/common/PathInputDialog";
 import { PastSessionsDialog } from "@/components/common/PastSessionsDialog";
@@ -28,6 +29,7 @@ export function MainLayout() {
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shortcutsEditorOpen, setShortcutsEditorOpen] = useState(false);
   const [renameTabId, setRenameTabId] = useState<string | null>(null);
   const [renameCurrentName, setRenameCurrentName] = useState("");
   const [pathDialogOpen, setPathDialogOpen] = useState(false);
@@ -91,6 +93,9 @@ export function MainLayout() {
     const toggleSettings = () => {
       setSettingsOpen((p) => !p);
     };
+    const openShortcutsEditor = () => {
+      setShortcutsEditorOpen(true);
+    };
     const openPathInput = () => {
       setPathDialogOpen(true);
     };
@@ -102,6 +107,7 @@ export function MainLayout() {
     };
     document.addEventListener("toggle-command-palette", togglePalette);
     document.addEventListener("toggle-settings-panel", toggleSettings);
+    document.addEventListener("open-shortcuts-editor", openShortcutsEditor);
     document.addEventListener("open-path-input", openPathInput);
     document.addEventListener("open-past-sessions-dialog", openPastSessions);
     document.addEventListener("show-tutorial", showTutorial);
@@ -114,6 +120,7 @@ export function MainLayout() {
     const closeOverlays = () => {
       setPaletteOpen(false);
       setSettingsOpen(false);
+      setShortcutsEditorOpen(false);
     };
     document.addEventListener("close-overlays", closeOverlays);
     document.addEventListener("open-rename-dialog", openRename);
@@ -121,6 +128,7 @@ export function MainLayout() {
     return () => {
       document.removeEventListener("toggle-command-palette", togglePalette);
       document.removeEventListener("toggle-settings-panel", toggleSettings);
+      document.removeEventListener("open-shortcuts-editor", openShortcutsEditor);
       document.removeEventListener("open-rename-dialog", openRename);
       document.removeEventListener("contextmenu", blockContextMenu);
       document.removeEventListener("open-path-input", openPathInput);
@@ -181,12 +189,12 @@ export function MainLayout() {
     <div className="h-screen w-screen flex flex-col bg-bg overflow-hidden">
       <TitleBar />
 
-      <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden">
         <TabBar />
 
-        <div className="flex flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
           {config.layout.previewPosition === "left" && <WebPreviewPanel />}
-          <main className="flex-1 flex flex-col min-w-0">
+          <main className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
             {renderPanel()}
           </main>
           {config.layout.previewPosition !== "left" && <WebPreviewPanel />}
@@ -208,6 +216,14 @@ export function MainLayout() {
         isOpen={settingsOpen}
         onClose={() => {
           setSettingsOpen(false);
+          restoreFocus();
+        }}
+      />
+
+      <KeyboardShortcutsEditor
+        isOpen={shortcutsEditorOpen}
+        onClose={() => {
+          setShortcutsEditorOpen(false);
           restoreFocus();
         }}
       />

@@ -1,3 +1,4 @@
+import { readClipboardText, writeClipboardText } from '@/lib/clipboard';
 import type { Command } from "@/components/common/CommandPalette";
 import { useTabStore } from "@/stores/tabStore";
 import { useTerminalStore } from "@/stores/terminalStore";
@@ -204,7 +205,7 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+Shift+C",
       category: "Terminal",
       action: () => {
-        document.execCommand("copy");
+        document.dispatchEvent(new CustomEvent("terminal-copy-action"));
       },
     },
     {
@@ -213,7 +214,7 @@ export function getAllCommands(): Command[] {
       shortcut: "Ctrl+Shift+V",
       category: "Terminal",
       action: () => {
-        navigator.clipboard.readText().then(async (text) => {
+        readClipboardText().then(async (text) => {
           const id = useTerminalStore.getState().focusedSessionId;
           if (id) {
             const { ptyWrite } = await import("@/lib/ipc");
@@ -320,15 +321,6 @@ export function getAllCommands(): Command[] {
       },
     },
     {
-      id: "tab.duplicate",
-      name: "Duplicate Tab",
-      shortcut: "Ctrl+Shift+D",
-      category: "Tab",
-      action: () => {
-        if (activeTabId) useTabStore.getState().duplicateTab(activeTabId);
-      },
-    },
-    {
       id: "tab.toggle-pin",
       name: "Toggle Pin Tab",
       category: "Tab",
@@ -403,6 +395,22 @@ export function getAllCommands(): Command[] {
       category: "View",
       action: () => {
         document.dispatchEvent(new CustomEvent("toggle-settings-panel"));
+      },
+    },
+    {
+      id: "view.shortcuts",
+      name: "Keyboard Shortcuts Editor",
+      category: "Preferences",
+      action: () => {
+        document.dispatchEvent(new CustomEvent("open-shortcuts-editor"));
+      },
+    },
+    {
+      id: "system.reload-config",
+      name: "Reload Configuration File",
+      category: "Preferences",
+      action: async () => {
+        await useConfigStore.getState().reloadConfig();
       },
     },
     {

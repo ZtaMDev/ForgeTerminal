@@ -76,31 +76,6 @@ export function TabContextMenu({ isOpen, x, y, tab, onClose }: TabContextMenuPro
       },
     },
     {
-      id: "duplicate",
-      label: "Duplicate",
-      icon: <Copy size={14} />,
-      shortcut: "Ctrl+Shift+D",
-      action: () => {
-        const tabStore = useTabStore.getState();
-        const termStore = useTerminalStore.getState();
-        const newId = tabStore.duplicateTab(tab.id);
-        if (newId && (tab.type === "terminal" || tab.type === "split")) {
-          const parentId = tab.sessionId ?? tab.id;
-          const parentSession = termStore.sessions.get(parentId);
-          termStore.addSession({
-            id: newId,
-            title: "Terminal",
-            shell: parentSession?.shell ?? "",
-            cwd: parentSession?.cwd ?? "",
-            cols: parentSession?.cols ?? 80,
-            rows: parentSession?.rows ?? 24,
-            processId: null,
-            createdAt: Date.now(),
-          });
-        }
-      },
-    },
-    {
       id: "toggle-pin",
       label: tab.pinned ? "Unpin" : "Pin",
       icon: tab.pinned ? <PinOff size={14} /> : <Pin size={14} />,

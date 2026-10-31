@@ -78,7 +78,7 @@ export function SplitTerminal({ node, tabId }: SplitTerminalProps) {
   return (
     <div
       ref={containerRef}
-      className="flex-1 flex min-h-0 min-w-0 bg-bg"
+      className="flex-1 flex min-h-0 min-w-0 bg-bg overflow-hidden"
       style={{ flexDirection: isHorizontal ? "row" : "column" }}
     >
       {items}

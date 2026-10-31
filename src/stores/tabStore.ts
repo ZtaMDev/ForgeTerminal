@@ -37,7 +37,6 @@ interface TabState {
   reorderTabs: (fromIndex: number, toIndex: number) => void;
   updateTab: (id: string, partial: Partial<Tab>) => void;
   togglePinTab: (id: string) => void;
-  duplicateTab: (id: string) => string;
   splitHorizontal: (tabId: string, focusedSessionId?: string) => string | undefined;
   splitVertical: (tabId: string, focusedSessionId?: string) => string | undefined;
   closeSplit: (tabId: string, sessionId: string) => void;
@@ -154,30 +153,6 @@ export const useTabStore = create<TabState>((set, get) => ({
         t.id === id ? { ...t, pinned: !t.pinned } : t,
       ),
     })),
-
-  duplicateTab: (id) => {
-    const state = get();
-    const tab = state.tabs.find((t) => t.id === id);
-    if (!tab) return "";
-
-    const newId = crypto.randomUUID();
-    const newTab: Tab = {
-      ...tab,
-      id: newId,
-      title: `${tab.title} (copy)`,
-      pinned: false,
-      createdAt: Date.now(),
-    };
-
-    set((s) => ({
-      tabs: [...s.tabs, newTab],
-      activeTabId: newId,
-      activeView:
-        newTab.type === "viewer" ? "viewer" : "terminal",
-    }));
-
-    return newId;
-  },
 
   splitHorizontal: (tabId, focusedSessionId) => {
     const state = get();

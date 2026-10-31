@@ -78,6 +78,14 @@ pub async fn config_save(config: String) -> Result<(), String> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub async fn config_get_path() -> Result<String, String> {
+    let config_dir = get_config_dir()?;
+    let path = config_dir.join("config.json");
+    Ok(path.to_string_lossy().to_string())
+}
+
 #[tauri::command]
 pub async fn get_process_args() -> Result<Vec<String>, String> {
     Ok(std::env::args().collect())

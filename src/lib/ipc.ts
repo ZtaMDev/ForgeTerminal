@@ -107,6 +107,18 @@ export async function configSave(config: string): Promise<void> {
   return invoke("config_save", { config });
 }
 
+export async function configGetPath(): Promise<string> {
+  return invoke<string>("config_get_path");
+}
+
+export async function clipboardReadText(): Promise<string> {
+  return invoke<string>("clipboard_read_text");
+}
+
+export async function clipboardWriteText(text: string): Promise<void> {
+  return invoke("clipboard_write_text", { text });
+}
+
 export const getProcessArgs = async (): Promise<string[]> => {
   return await invoke("get_process_args");
 };

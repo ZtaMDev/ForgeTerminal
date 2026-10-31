@@ -119,13 +119,6 @@ export function TerminalContextMenu({ isOpen, x, y, tab, onClose }: TerminalCont
         );
       },
     },
-    {
-      id: "duplicate",
-      label: "Duplicate Tab",
-      icon: <Copy size={14} />,
-      shortcut: "Ctrl+Shift+D",
-      action: () => useTabStore.getState().duplicateTab(tab.id),
-    },
   ];
 
   return <ContextMenu isOpen={isOpen} x={x} y={y} items={items} onClose={onClose} />;

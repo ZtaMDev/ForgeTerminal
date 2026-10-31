@@ -1,3 +1,5 @@
+import { readClipboardText, writeClipboardText } from '@/lib/clipboard';
+import { matchShortcut } from '@/lib/shortcuts';
 import { useEffect, useRef, useCallback, useState } from "react";
 import { debounce } from "@/lib/utils";
 import { Terminal } from "@xterm/xterm";
@@ -14,7 +16,7 @@ import { open } from "@tauri-apps/plugin-shell";
 
 // Tooltip state
 let activeTooltip: HTMLElement | null = null;
-let tooltipTimeout: NodeJS.Timeout | null = null;
+let tooltipTimeout: number |null = null;
 
 const createTooltip = (event: MouseEvent, uri: string) => {
   if (activeTooltip) {
@@ -312,26 +314,37 @@ export function TerminalInstance({
     // - Ctrl+` is always blocked from xterm → handled by shortcut system for passthrough toggle
     // - All other keys pass through so REPL shortcuts (Ctrl+C, Ctrl+B, etc.) work in terminal
     xterm.attachCustomKeyEventHandler((e) => {
-      // Ctrl+` is always our toggle key — blocked from xterm
-      if (e.code === "Backquote" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      const curConfig = useConfigStore.getState().config;
+      // Toggle key — blocked from xterm
+      if (matchShortcut(e, "Ctrl+<cmd>", curConfig.shortcuts.commandKey)) {
         return false;
       }
       
-      // Copy on Ctrl+C if text is selected
-      if (e.type === "keydown" && e.code === "KeyC" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      // Copy on Ctrl+C if text is selected, or custom terminal copy shortcut
+      const copyKeys = curConfig.shortcuts.terminal?.copy || ["Ctrl+Shift+C"];
+      const isCopyCombo = copyKeys.some((k) => matchShortcut(e, k, curConfig.shortcuts.commandKey)) ||
+        (e.type === "keydown" && e.code === "KeyC" && e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey);
+
+      if (e.type === "keydown" && isCopyCombo) {
         if (xterm.hasSelection()) {
           e.preventDefault();
-          navigator.clipboard.writeText(xterm.getSelection()).catch(console.error);
+          writeClipboardText(xterm.getSelection()).catch(console.error);
           xterm.clearSelection();
           return false; // Prevent sending SIGINT to terminal
         }
       }
 
-      // Paste on Ctrl+V or Ctrl+Shift+V
-      if (e.type === "keydown" && e.code === "KeyV" && e.ctrlKey && !e.altKey && !e.metaKey) {
+      // Paste on configured paste shortcut or Ctrl+V
+      const pasteKeys = curConfig.shortcuts.terminal?.paste || ["Ctrl+Shift+V"];
+      const isPasteCombo = pasteKeys.some((k) => matchShortcut(e, k, curConfig.shortcuts.commandKey)) ||
+        (e.type === "keydown" && e.code === "KeyV" && e.ctrlKey && !e.altKey && !e.metaKey);
+
+      if (e.type === "keydown" && isPasteCombo) {
         e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
-          ptyWrite(sessionId, text).catch(console.error);
+        readClipboardText().then((text) => {
+          if (text) {
+            ptyWrite(sessionId, text).catch(console.error);
+          }
         });
         return false;
       }
@@ -428,7 +441,7 @@ export function TerminalInstance({
       if (useConfigStore.getState().config.terminal.copyOnSelect && xterm.hasSelection()) {
         const sel = xterm.getSelection();
         if (sel) {
-          navigator.clipboard.writeText(sel).catch(console.error);
+          writeClipboardText(sel).catch(console.error);
         }
       }
     };
@@ -437,12 +450,24 @@ export function TerminalInstance({
     const handleContextMenu = (e: MouseEvent) => {
       if (useConfigStore.getState().config.terminal.rightClickPaste) {
         e.preventDefault();
-        navigator.clipboard.readText().then((text) => {
+        readClipboardText().then((text) => {
           ptyWrite(sessionId, text).catch(console.error);
         });
       }
     };
     termElem?.addEventListener("contextmenu", handleContextMenu);
+
+    // Listen for external copy requests
+    const handleCopyAction = () => {
+      if (xterm.hasSelection()) {
+        const sel = xterm.getSelection();
+        if (sel) {
+          writeClipboardText(sel).catch(console.error);
+          xterm.clearSelection();
+        }
+      }
+    };
+    document.addEventListener("terminal-copy-action", handleCopyAction);
 
     // Listen for external focus requests (e.g. from Ctrl+` shortcut)
     const handleFocusRequest = (e: Event) => {
@@ -509,6 +534,7 @@ export function TerminalInstance({
       document.removeEventListener("blur-terminal", handleBlurRequest);
       document.removeEventListener("focus-restore", handleFocusRestore);
       document.removeEventListener(`toggle-search-${sessionId}`, handleToggleSearch);
+      document.removeEventListener("terminal-copy-action", handleCopyAction);
       xterm.dispose();
       isSpawnedRef.current = false;
     };
@@ -528,6 +554,28 @@ export function TerminalInstance({
     xterm.options.cursorBlink = config.terminal.cursorBlink;
     xterm.options.cursorStyle = config.terminal.cursorStyle;
     xterm.options.scrollback = config.terminal.scrollback;
+
+    // Immediately re-fit xterm to the container when font metrics change
+    const fitAndResize = () => {
+      try {
+        fitAddonRef.current?.fit();
+        if (xterm) {
+          const { cols, rows } = xterm;
+          ptyResize(sessionId, cols, rows).catch(() => {});
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    fitAndResize();
+    const rafId = requestAnimationFrame(fitAndResize);
+    const timeoutId = setTimeout(fitAndResize, 50);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timeoutId);
+    };
   }, [
     config.terminal.fontSize,
     config.terminal.fontFamily,
@@ -535,6 +583,7 @@ export function TerminalInstance({
     config.terminal.cursorBlink,
     config.terminal.cursorStyle,
     config.terminal.scrollback,
+    sessionId,
   ]);
 
 
@@ -548,13 +597,13 @@ export function TerminalInstance({
 
   return (
     <div 
-      className="h-full w-full relative group" 
+      className="h-full w-full relative group overflow-hidden" 
       data-terminal-id={sessionId}
       onMouseDown={handleMouseDown}
     >
       <div
         ref={terminalRef}
-        className="w-full h-full relative"
+        className="w-full h-full relative overflow-hidden"
         style={{
           background: theme.terminal.background ?? "#1e1e2e",
           opacity: config.theme.opacity,

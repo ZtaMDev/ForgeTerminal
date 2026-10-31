@@ -7,7 +7,26 @@ import { isPrefixActive, activatePrefix, deactivatePrefix } from "@/lib/prefixMo
 import { getSessions } from "@/lib/splitUtils";
 
 function preventBrowserDefaults(e: KeyboardEvent) {
-  if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma" || e.code === "KeyJ" || e.code === "KeyU")) {
+  if (
+    e.ctrlKey &&
+    (e.code === "KeyP" ||
+      e.code === "KeyS" ||
+      e.code === "KeyF" ||
+      e.code === "KeyB" ||
+      e.code === "KeyD" ||
+      e.code === "KeyR" ||
+      e.code === "KeyO" ||
+      e.code === "Comma" ||
+      e.code === "KeyJ" ||
+      e.code === "KeyU" ||
+      e.code === "Equal" ||
+      e.code === "Minus" ||
+      e.code === "NumpadAdd" ||
+      e.code === "NumpadSubtract" ||
+      e.key === "+" ||
+      e.key === "=" ||
+      e.key === "-")
+  ) {
     e.preventDefault();
     e.stopPropagation();
   }
@@ -28,6 +47,14 @@ export function useKeyboardShortcuts() {
     // ── Capture-phase handler: shortcuts ──
     const handler = (e: KeyboardEvent) => {
       if (document.querySelector('[data-tutorial="true"]')) {
+        return;
+      }
+
+      if (document.querySelector('[data-recording="true"]')) {
+        return;
+      }
+
+      if (document.querySelector('[data-shortcuts-editor="true"]')) {
         return;
       }
 
@@ -201,8 +228,26 @@ export function useKeyboardShortcuts() {
     // ── Bubble-phase handler: prevent browser defaults that xterm missed ──
     const bubbleHandler = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      const isTerminalFocused = document.activeElement?.closest(".xterm") !== null;
-      if (e.ctrlKey && (e.code === "KeyP" || e.code === "KeyS" || e.code === "KeyF" || e.code === "KeyB" || e.code === "KeyD" || e.code === "KeyR" || e.code === "KeyO" || e.code === "Comma" || e.code === "KeyJ" || e.code === "KeyU")) {
+      if (
+        e.ctrlKey &&
+        (e.code === "KeyP" ||
+          e.code === "KeyS" ||
+          e.code === "KeyF" ||
+          e.code === "KeyB" ||
+          e.code === "KeyD" ||
+          e.code === "KeyR" ||
+          e.code === "KeyO" ||
+          e.code === "Comma" ||
+          e.code === "KeyJ" ||
+          e.code === "KeyU" ||
+          e.code === "Equal" ||
+          e.code === "Minus" ||
+          e.code === "NumpadAdd" ||
+          e.code === "NumpadSubtract" ||
+          e.key === "+" ||
+          e.key === "=" ||
+          e.key === "-")
+      ) {
         e.preventDefault();
       }
     };
@@ -406,26 +451,6 @@ export function useKeyboardShortcuts() {
         import("@/stores/previewStore").then((m) => m.usePreviewStore.getState().togglePreview());
         break;
       }
-      case "duplicate-tab": {
-        if (activeTabId) {
-          const newTabId = tabState.duplicateTab(activeTabId);
-          const dupSourceTab = tabState.tabs.find((t) => t.id === activeTabId);
-          if (newTabId && (dupSourceTab?.type === "terminal" || dupSourceTab?.type === "split")) {
-            const parentSession = termState.sessions.get(activeTabId);
-            termState.addSession({
-              id: newTabId,
-              title: "Terminal",
-              shell: parentSession?.shell || config.terminal.defaultShell || "powershell.exe",
-              cwd: parentSession?.cwd ?? "",
-              cols: parentSession?.cols ?? 80,
-              rows: parentSession?.rows ?? 24,
-              processId: null,
-              createdAt: Date.now(),
-            });
-          }
-        }
-        break;
-      }
       case "rename-tab": {
         const tab = tabs.find((t) => t.id === activeTabId);
         if (tab) {
@@ -483,8 +508,23 @@ export function useKeyboardShortcuts() {
         }
         break;
       }
-      case "focus-viewer": {
-        tabState.setActiveView("viewer");
+      case "copy": {
+        document.dispatchEvent(new CustomEvent("terminal-copy-action"));
+        break;
+      }
+      case "paste": {
+        const focusedId = termState.focusedSessionId;
+        if (focusedId) {
+          import("@/lib/clipboard").then(({ readClipboardText }) => {
+            readClipboardText().then((text) => {
+              if (text) {
+                import("@/lib/ipc").then(({ ptyWrite }) => {
+                  ptyWrite(focusedId, text).catch(console.error);
+                });
+              }
+            });
+          });
+        }
         break;
       }
       case "move-tab-up": {
@@ -505,21 +545,6 @@ export function useKeyboardShortcuts() {
       }
       case "release-focus": {
         (document.activeElement as HTMLElement)?.blur();
-        break;
-      }
-      case "fullscreen": {
-        try {
-          import("@tauri-apps/api/window").then(async (m) => {
-            const win = m.getCurrentWindow();
-            await win.toggleMaximize();
-          });
-        } catch {
-          if (!document.fullscreenElement) {
-            document.documentElement.requestFullscreen().catch(() => {});
-          } else {
-            document.exitFullscreen().catch(() => {});
-          }
-        }
         break;
       }
       default:

@@ -24,6 +24,8 @@ pub fn run() {
         }))
         .manage(AppState::new())
         .invoke_handler(tauri::generate_handler![
+            commands::clipboard::clipboard_read_text,
+            commands::clipboard::clipboard_write_text,
             commands::contextmenu::install_context_menu,
             commands::contextmenu::uninstall_context_menu,
             commands::contextmenu::is_context_menu_installed,
@@ -45,6 +47,7 @@ pub fn run() {
             commands::workspace::workspace_save,
             commands::workspace::config_load,
             commands::workspace::config_save,
+            commands::workspace::config_get_path,
             commands::workspace::get_process_args,
             commands::window::window_start_drag,
             commands::window::window_minimize,

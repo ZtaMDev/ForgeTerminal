@@ -41,14 +41,15 @@ export const useShortcutStore = create<ShortcutState>((set, get) => ({
     const state = get();
     const { shortcuts, context, commands } = state;
 
-    const contextMap = shortcuts[context as keyof ShortcutsConfig] ?? {};
-    const globalMap = shortcuts.global;
+    const contextMap = context === "terminal" ? shortcuts.terminal : {};
+    const globalMap = shortcuts.global || {};
 
-    const allShortcuts = { ...globalMap, ...contextMap };
+    const allShortcuts: Record<string, string[]> = { ...globalMap, ...contextMap };
 
     for (const [commandName, keys] of Object.entries(allShortcuts)) {
+      if (!Array.isArray(keys)) continue;
       for (const keyCombo of keys) {
-        if (matchShortcut(event, keyCombo)) {
+        if (matchShortcut(event, keyCombo, shortcuts.commandKey)) {
           const handler = commands.get(commandName);
           if (handler) {
             event.preventDefault();

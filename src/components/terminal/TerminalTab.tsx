@@ -31,7 +31,7 @@ export function TerminalTab({ tabId, sessionId, splitNode }: TerminalTabProps) {
   if (!tab) return null;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 min-w-0" onContextMenu={handleContextMenu}>
+    <div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden" onContextMenu={handleContextMenu}>
       {splitNode ? (
         <SplitTerminal node={splitNode} tabId={tabId} />
       ) : (

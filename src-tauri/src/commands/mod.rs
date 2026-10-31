@@ -1,3 +1,4 @@
+pub mod clipboard;
 pub mod contextmenu;
 pub mod filesystem;
 pub mod terminal;

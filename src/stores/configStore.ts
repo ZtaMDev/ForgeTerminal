@@ -30,7 +30,7 @@ const defaultConfig: ForgeConfig = {
     scrollback: 100000,
     bellStyle: "none",
     copyOnSelect: true,
-    rightClickPaste: true,
+    rightClickPaste: false,
     linkBehavior: "preview",
     environment: {},
     args: [],
@@ -55,25 +55,80 @@ const defaultConfig: ForgeConfig = {
   },
 };
 
+function mergeConfig(parsed: Partial<ForgeConfig>): ForgeConfig {
+  // Migrate old shortcuts to use <cmd>
+  if (parsed.shortcuts?.global) {
+    // Remove obsolete shortcuts from legacy configs
+    delete (parsed.shortcuts.global as Record<string, unknown>)["duplicate-tab"];
+    delete (parsed.shortcuts.global as Record<string, unknown>)["focus-viewer"];
+
+    for (const [key, val] of Object.entries(parsed.shortcuts.global)) {
+      if (Array.isArray(val)) {
+        parsed.shortcuts.global[key] = val.map((v) =>
+          v
+            .replace("Ctrl+`", "Ctrl+<cmd>")
+            .replace("Ctrl+Shift+`", "Ctrl+Shift+<cmd>")
+            .replace("Ctrl+Alt+`", "Ctrl+Alt+<cmd>")
+        );
+      }
+    }
+
+    // Ensure font-increase includes Ctrl++ first
+    const fontInc = parsed.shortcuts.global["font-increase"];
+    if (Array.isArray(fontInc)) {
+      if (fontInc.includes("Ctrl+=") && !fontInc.includes("Ctrl++")) {
+        parsed.shortcuts.global["font-increase"] = ["Ctrl++", ...fontInc];
+      }
+    }
+  }
+
+  return {
+    ...defaultConfig,
+    ...parsed,
+    theme: {
+      ...defaultConfig.theme,
+      ...(parsed.theme || {}),
+      animations: {
+        ...defaultConfig.theme.animations,
+        ...(parsed.theme?.animations || {}),
+      },
+    },
+    terminal: { ...defaultConfig.terminal, ...(parsed.terminal || {}) },
+    layout: { ...defaultConfig.layout, ...(parsed.layout || {}) },
+    shortcuts: {
+      commandKey: parsed.shortcuts?.commandKey || defaultConfig.shortcuts.commandKey,
+      global: { ...defaultConfig.shortcuts.global, ...(parsed.shortcuts?.global || {}) },
+      terminal: { ...defaultConfig.shortcuts.terminal, ...(parsed.shortcuts?.terminal || {}) },
+    },
+    session: { ...defaultConfig.session, ...(parsed.session || {}) },
+    developer: { ...defaultConfig.developer, ...(parsed.developer || {}) },
+  };
+}
+
 interface ConfigState {
   config: ForgeConfig;
+  configPath: string | null;
   loaded: boolean;
   setConfig: (config: Partial<ForgeConfig>) => void;
   setTheme: (theme: Partial<ThemeConfig>) => void;
   setTerminal: (terminal: Partial<TerminalConfig>) => void;
   setLayout: (layout: Partial<LayoutConfig>) => void;
   setShortcuts: (shortcuts: Partial<ShortcutsConfig>) => void;
+  setShortcutBinding: (category: "global" | "terminal", action: string, keys: string[]) => void;
+  resetShortcuts: () => void;
   setSession: (session: Partial<SessionConfig>) => void;
   setDeveloper: (developer: Partial<DeveloperConfig>) => void;
   addPastPath: (path: string) => void;
   clearPastPaths: () => void;
   resetConfig: () => void;
   loadConfig: () => Promise<void>;
+  reloadConfig: () => Promise<{ success: boolean; message: string }>;
   saveConfig: () => Promise<void>;
 }
 
 export const useConfigStore = create<ConfigState>((set, get) => ({
   config: defaultConfig,
+  configPath: null,
   loaded: false,
 
   setConfig: (partial) =>
@@ -113,6 +168,32 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       },
     })),
 
+  setShortcutBinding: (category, action, keys) =>
+    set((state) => {
+      const currentCat = state.config.shortcuts[category] || {};
+      const newCat = { ...currentCat, [action]: keys };
+      return {
+        config: {
+          ...state.config,
+          shortcuts: {
+            ...state.config.shortcuts,
+            [category]: newCat,
+          },
+        },
+      };
+    }),
+
+  resetShortcuts: () =>
+    set((state) => ({
+      config: {
+        ...state.config,
+        shortcuts: {
+          ...defaultShortcuts,
+          commandKey: state.config.shortcuts.commandKey,
+        },
+      },
+    })),
+
   setSession: (session) =>
     set((state) => ({
       config: { ...state.config, session: { ...state.config.session, ...session } },
@@ -147,63 +228,69 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ config: { ...defaultConfig } }),
 
   loadConfig: async () => {
-    const mergeConfig = (parsed: Partial<ForgeConfig>): ForgeConfig => {
-      // Migrate old shortcuts to use <cmd>
-      if (parsed.shortcuts?.global) {
-        for (const [key, val] of Object.entries(parsed.shortcuts.global)) {
-          if (Array.isArray(val)) {
-            parsed.shortcuts.global[key] = val.map(v => 
-              v.replace("Ctrl+`", "Ctrl+<cmd>")
-               .replace("Ctrl+Shift+`", "Ctrl+Shift+<cmd>")
-               .replace("Ctrl+Alt+`", "Ctrl+Alt+<cmd>")
-            );
-          }
-        }
-      }
-
-      return {
-        ...defaultConfig,
-        ...parsed,
-        theme: {
-          ...defaultConfig.theme,
-          ...(parsed.theme || {}),
-          animations: {
-            ...defaultConfig.theme.animations,
-            ...(parsed.theme?.animations || {}),
-          },
-        },
-        terminal: { ...defaultConfig.terminal, ...(parsed.terminal || {}) },
-        layout: { ...defaultConfig.layout, ...(parsed.layout || {}) },
-        shortcuts: {
-          commandKey: parsed.shortcuts?.commandKey || defaultConfig.shortcuts.commandKey,
-          global: { ...defaultConfig.shortcuts.global, ...(parsed.shortcuts?.global || {}) },
-          terminal: { ...defaultConfig.shortcuts.terminal, ...(parsed.shortcuts?.terminal || {}) },
-        },
-        session: { ...defaultConfig.session, ...(parsed.session || {}) },
-        developer: { ...defaultConfig.developer, ...(parsed.developer || {}) },
-      };
-    };
+    let resolvedPath: string | null = null;
+    try {
+      const { configGetPath } = await import("@/lib/ipc");
+      resolvedPath = await configGetPath();
+    } catch {
+      /* IPC not available */
+    }
 
     try {
-      const { configLoad } = await import("@/lib/ipc");
+      const { configLoad, configSave } = await import("@/lib/ipc");
       const raw = await configLoad();
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<ForgeConfig>;
-        set({ config: mergeConfig(parsed), loaded: true });
+        set({ config: mergeConfig(parsed), configPath: resolvedPath, loaded: true });
         return;
+      } else {
+        // Create initial config file on disk if it doesn't exist
+        await configSave(JSON.stringify(defaultConfig, null, 2)).catch(() => {});
       }
-    } catch { /* IPC not available */ }
+    } catch {
+      /* IPC not available */
+    }
 
     try {
       const raw = localStorage.getItem("forge-config");
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<ForgeConfig>;
-        set({ config: mergeConfig(parsed), loaded: true });
+        set({ config: mergeConfig(parsed), configPath: resolvedPath, loaded: true });
         return;
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
 
-    set({ loaded: true });
+    set({ configPath: resolvedPath, loaded: true });
+  },
+
+  reloadConfig: async () => {
+    let resolvedPath = get().configPath;
+    try {
+      const { configGetPath } = await import("@/lib/ipc");
+      resolvedPath = await configGetPath();
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const { configLoad } = await import("@/lib/ipc");
+      const raw = await configLoad();
+      if (!raw) {
+        return { success: false, message: "Configuration file does not exist or is empty" };
+      }
+      const parsed = JSON.parse(raw) as Partial<ForgeConfig>;
+      const merged = mergeConfig(parsed);
+      set({ config: merged, configPath: resolvedPath, loaded: true });
+      return { success: true, message: "Configuration reloaded successfully" };
+    } catch (e) {
+      console.error("Failed to reload config:", e);
+      return {
+        success: false,
+        message: e instanceof Error ? e.message : "Failed to parse config.json",
+      };
+    }
   },
 
   saveConfig: async () => {
@@ -211,7 +298,9 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
       const { configSave } = await import("@/lib/ipc");
       await configSave(JSON.stringify(get().config, null, 2));
       return;
-    } catch { /* IPC not available */ }
+    } catch {
+      /* IPC not available */
+    }
 
     try {
       localStorage.setItem("forge-config", JSON.stringify(get().config));

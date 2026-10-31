@@ -28,7 +28,7 @@ export function StatusBar() {
   }, []);
 
   return (
-    <div className="h-6 bg-bg-alt border-t border-surface0 flex items-center px-3 gap-3 text-[11px] flex-shrink-0 select-none">
+    <div className="h-6 bg-bg-alt border-t border-surface0 flex items-center px-3 gap-3 text-[11px] flex-shrink-0 select-none relative z-20">
       {prefixActive ? (
         <span className="text-accent font-bold tracking-wide">
           CMD

@@ -178,7 +178,7 @@ export function CommandPalette({
                 onClose();
               }}
             >
-              <span className="text-xs text-fg-subtle bg-surface0 px-1.5 py-0.5 rounded w-16 text-center flex-shrink-0">
+              <span className="text-[11px] font-medium text-fg-subtle bg-surface0 px-2 py-0.5 rounded min-w-[5.5rem] max-w-[7rem] text-center flex-shrink-0 truncate">
                 {cmd.category}
               </span>
               <span className="flex-1 text-sm truncate">{cmd.name}</span>

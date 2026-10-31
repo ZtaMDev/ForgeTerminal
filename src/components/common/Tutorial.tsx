@@ -48,8 +48,7 @@ const getSteps = (commandKey: string) => [
       "• Ctrl+W — Close current tab/pane\n" +
       "• Ctrl+Shift+W — Close entire tab\n" +
       "• Ctrl+Tab / Ctrl+Shift+Tab — Next / previous tab\n" +
-      "• Ctrl+1 through Ctrl+9 — Go to tab N\n" +
-      "• Ctrl+Shift+D — Duplicate tab",
+      "• Ctrl+1 through Ctrl+9 — Go to tab N",
     target: null,
   },
   {
