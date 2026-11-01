@@ -5,6 +5,7 @@ export interface ThemeConfig {
   animations: {
     enabled: boolean;
     speed: number;
+    splitTabAnimation: boolean;
   };
 }
 

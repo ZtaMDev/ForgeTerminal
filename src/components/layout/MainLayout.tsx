@@ -36,6 +36,16 @@ export function MainLayout() {
   const [pastSessionsOpen, setPastSessionsOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
 
+  // Refs to track sub-dialog open state synchronously (before React re-render)
+  // Used to prevent restoreFocus() from stealing focus when a sub-dialog is opening
+  const pathDialogOpenRef = useRef(false);
+  const renameTabIdRef = useRef<string | null>(null);
+  const pastSessionsOpenRef = useRef(false);
+
+  useEffect(() => { pathDialogOpenRef.current = pathDialogOpen; }, [pathDialogOpen]);
+  useEffect(() => { renameTabIdRef.current = renameTabId; }, [renameTabId]);
+  useEffect(() => { pastSessionsOpenRef.current = pastSessionsOpen; }, [pastSessionsOpen]);
+
   // Inject animation duration CSS variable
   useEffect(() => {
     const speed = config.theme.animations.enabled ? config.theme.animations.speed : 0;
@@ -84,6 +94,7 @@ export function MainLayout() {
     };
     const openRename = (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      renameTabIdRef.current = detail.tabId; // set ref synchronously before state update
       setRenameTabId(detail.tabId);
       setRenameCurrentName(detail.currentName);
     };
@@ -97,9 +108,11 @@ export function MainLayout() {
       setShortcutsEditorOpen(true);
     };
     const openPathInput = () => {
+      pathDialogOpenRef.current = true; // set ref synchronously before state update
       setPathDialogOpen(true);
     };
     const openPastSessions = () => {
+      pastSessionsOpenRef.current = true; // set ref synchronously before state update
       setPastSessionsOpen(true);
     };
     const showTutorial = () => {
@@ -143,6 +156,15 @@ export function MainLayout() {
 
   function restoreFocus() {
     setTimeout(() => {
+      // Do not steal focus if a sub-dialog is opening (PathInput, Rename, PastSessions)
+      // These dialogs manage their own focus internally
+      if (
+        pathDialogOpenRef.current ||
+        renameTabIdRef.current !== null ||
+        pastSessionsOpenRef.current
+      ) {
+        return;
+      }
       const targetSession = useTerminalStore.getState().lastFocusedSessionId;
       if (targetSession) {
         document.dispatchEvent(

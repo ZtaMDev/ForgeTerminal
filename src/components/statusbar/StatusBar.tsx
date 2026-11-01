@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTabStore } from "@/stores/tabStore";
 import { useConfigStore } from "@/stores/configStore";
 import { usePreviewStore } from "@/stores/previewStore";
@@ -12,6 +12,8 @@ export function StatusBar() {
   const { activeView, activeTabId } = useTabStore();
   const config = useConfigStore((s) => s.config);
   const [prefixActive, setPrefixActive] = useState(false);
+  const [switchMode, setSwitchMode] = useState(false);
+  const switchModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -21,15 +23,33 @@ export function StatusBar() {
     const interval = setInterval(() => {
       setPrefixActive(isPrefixActive());
     }, 500);
+
+    // Split SWITCH mode indicator — auto-dismisses 1.5s after last navigation
+    const switchHandler = () => {
+      setSwitchMode(true);
+      if (switchModeTimerRef.current) clearTimeout(switchModeTimerRef.current);
+      switchModeTimerRef.current = setTimeout(() => {
+        setSwitchMode(false);
+        switchModeTimerRef.current = null;
+      }, 1500);
+    };
+    document.addEventListener("split-switch-mode", switchHandler);
+
     return () => {
       document.removeEventListener("prefix-mode-changed", handler);
+      document.removeEventListener("split-switch-mode", switchHandler);
       clearInterval(interval);
+      if (switchModeTimerRef.current) clearTimeout(switchModeTimerRef.current);
     };
   }, []);
 
   return (
     <div className="h-6 bg-bg-alt border-t border-surface0 flex items-center px-3 gap-3 text-[11px] flex-shrink-0 select-none relative z-20">
-      {prefixActive ? (
+      {switchMode ? (
+        <span className="text-green font-bold tracking-wide animate-pulse">
+          SWITCH
+        </span>
+      ) : prefixActive ? (
         <span className="text-accent font-bold tracking-wide">
           CMD
         </span>

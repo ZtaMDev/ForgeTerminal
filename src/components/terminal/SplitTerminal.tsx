@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect, useState } from "react";
 import { TerminalInstance } from "./TerminalInstance";
 import type { SplitNode } from "@/types/terminal";
 import { useTerminalStore } from "@/stores/terminalStore";
+import { useConfigStore } from "@/stores/configStore";
 
 interface SplitTerminalProps {
   node: SplitNode;
@@ -17,6 +18,7 @@ export function SplitTerminal({ node, tabId }: SplitTerminalProps) {
   const [sizes, setSizes] = useState<number[]>(() => node.sizes ?? Array(n).fill(100 / n));
   const containerRef = useRef<HTMLDivElement>(null);
   const sessions = useTerminalStore((s) => s.sessions);
+  const splitTabAnimation = useConfigStore((s) => s.config.theme.animations.splitTabAnimation);
 
   useEffect(() => {
     setSizes(node.sizes ?? Array(node.children.length).fill(100 / node.children.length));
@@ -56,7 +58,7 @@ export function SplitTerminal({ node, tabId }: SplitTerminalProps) {
     items.push(
       <div
         key={childNode.id || `child-${i}`}
-        className="flex flex-col min-h-0 min-w-0 anim-transition anim-slide"
+        className={`flex flex-col min-h-0 min-w-0${splitTabAnimation ? " anim-transition anim-slide" : ""}`}
         style={{ 
           [isHorizontal ? 'width' : 'height']: `${sizes[i]}%`,
           [isHorizontal ? 'height' : 'width']: '100%',

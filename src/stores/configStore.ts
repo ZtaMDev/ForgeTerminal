@@ -18,6 +18,7 @@ const defaultConfig: ForgeConfig = {
     animations: {
       enabled: true,
       speed: 200,
+      splitTabAnimation: true,
     },
   },
   terminal: {

@@ -158,6 +158,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     // Appearance
     { section: "Appearance", id: "animToggle", label: "Animations", type: "toggle" as const, value: config.theme.animations.enabled, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, enabled: v as boolean } }) },
     { section: "Appearance", id: "animSpeed", label: "Animation Speed (ms)", type: "number" as const, value: config.theme.animations.speed, min: 50, max: 1000, step: 50, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, speed: v as number } }) },
+    { section: "Appearance", id: "splitTabAnimation", label: "Split Tab Transition Animation", type: "toggle" as const, value: config.theme.animations.splitTabAnimation, onChange: (v: unknown) => setTheme({ animations: { ...config.theme.animations, splitTabAnimation: v as boolean } }) },
 
     // Layout
     { section: "Layout", id: "showStatusBar", label: "Show Status Bar", type: "toggle" as const, value: config.layout.showStatusBar, onChange: (v: unknown) => setLayout({ showStatusBar: v as boolean }) },

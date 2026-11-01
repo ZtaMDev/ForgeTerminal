@@ -113,6 +113,7 @@ export function useKeyboardShortcuts() {
                 e.stopPropagation();
                 useTerminalStore.getState().setFocusedSession(prevSession);
                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: prevSession } }));
+                document.dispatchEvent(new CustomEvent("split-switch-mode"));
                 return;
               }
             } else {
@@ -123,6 +124,7 @@ export function useKeyboardShortcuts() {
                 e.stopPropagation();
                 useTerminalStore.getState().setFocusedSession(nextSession);
                 document.dispatchEvent(new CustomEvent("focus-terminal", { detail: { sessionId: nextSession } }));
+                document.dispatchEvent(new CustomEvent("split-switch-mode"));
                 return;
               }
             }
