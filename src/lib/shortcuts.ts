@@ -56,14 +56,6 @@ export interface ShortcutDefinition {
 export const shortcutDefinitions: ShortcutDefinition[] = [
   // System
   {
-    id: "toggle-passthrough",
-    category: "global",
-    group: "System",
-    name: "Toggle Passthrough / Prefix Mode",
-    description: "Toggle between Forge shortcut mode and direct terminal mode",
-    defaultKeys: ["Ctrl+<cmd>"],
-  },
-  {
     id: "command-palette",
     category: "global",
     group: "System",
@@ -81,22 +73,6 @@ export const shortcutDefinitions: ShortcutDefinition[] = [
   },
 
   // Terminal & Splits
-  {
-    id: "new-terminal",
-    category: "global",
-    group: "Terminal & Splits",
-    name: "New Terminal Tab",
-    description: "Open a new terminal tab with default shell",
-    defaultKeys: ["Ctrl+Shift+<cmd>"],
-  },
-  {
-    id: "new-terminal-at",
-    category: "global",
-    group: "Terminal & Splits",
-    name: "New Terminal at Path...",
-    description: "Open a new terminal tab at a specific folder path",
-    defaultKeys: ["Ctrl+Alt+<cmd>"],
-  },
   {
     id: "past-sessions",
     category: "global",
@@ -540,11 +516,6 @@ export function eventToShortcutString(event: KeyboardEvent, commandKey: string):
     keyStr = event.key.toUpperCase();
   } else {
     keyStr = event.key;
-  }
-
-  // If this matches user's configured commandKey, represent as <cmd>
-  if (keyStr.toLowerCase() === commandKey.toLowerCase()) {
-    keyStr = "<cmd>";
   }
 
   parts.push(keyStr);
